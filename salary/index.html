@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>深圳税后年收入计算器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f0f2f5; color: #333; line-height: 1.6; }
+.container { max-width: 900px; margin: 40px auto; padding: 20px; }
+h1 { text-align: center; color: #1a1a2e; font-size: 28px; margin-bottom: 30px; }
+h1 span { color: #e94560; }
+.card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+.card h2 { font-size: 18px; color: #1a1a2e; margin-bottom: 16px; border-bottom: 2px solid #e94560; padding-bottom: 8px; }
+.form-row { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+.form-group { flex: 1; min-width: 200px; }
+.form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; }
+.form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; transition: border 0.2s; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: #e94560; }
+.form-group .unit { font-size: 12px; color: #999; margin-top: 2px; }
+.toggle-btn { background: #1a1a2e; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-bottom: 12px; }
+.toggle-btn:hover { background: #16213e; }
+.settings-panel { display: none; }
+.settings-panel.show { display: block; }
+.calc-btn { background: #e94560; color: #fff; border: none; padding: 12px 40px; border-radius: 8px; font-size: 16px; cursor: pointer; display: block; margin: 20px auto; }
+.calc-btn:hover { background: #c73652; }
+.result-section { margin-top: 20px; }
+.result-section h2 { font-size: 18px; color: #1a1a2e; margin-bottom: 16px; border-bottom: 2px solid #16c79a; padding-bottom: 8px; }
+.result-summary { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.result-box { flex: 1; min-width: 180px; background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; border-radius: 10px; padding: 16px; text-align: center; }
+.result-box.highlight { background: linear-gradient(135deg, #e94560, #c73652); }
+.result-box .label { font-size: 13px; opacity: 0.8; }
+.result-box .value { font-size: 24px; font-weight: bold; margin-top: 4px; }
+.result-box .value.small { font-size: 16px; }
+table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+table th { background: #1a1a2e; color: #fff; padding: 10px; font-size: 13px; }
+table td { padding: 8px 10px; border-bottom: 1px solid #eee; font-size: 14px; text-align: right; }
+table td:first-child { text-align: left; }
+table tr:nth-child(even) { background: #f8f9fa; }
+table .total-row { background: #e8f5e9; font-weight: bold; }
+.month-switch { display: flex; gap: 8px; margin-bottom: 16px; }
+.month-switch button { padding: 6px 20px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 14px; }
+.month-switch button.active { background: #e94560; color: #fff; border-color: #e94560; }
+.tax-detail { margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; font-size: 13px; color: #666; }
+.tabs { display: flex; gap: 0; margin-bottom: 20px; }
+.tabs button { padding: 10px 24px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-size: 14px; border-radius: 0; }
+.tabs button:first-child { border-radius: 8px 0 0 8px; }
+.tabs button:last-child { border-radius: 0 8px 8px 0; }
+.tabs button.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+.help-text { font-size: 12px; color: #999; margin-top: 8px; }
+@media (max-width: 600px) { .container { margin: 10px; padding: 10px; } .form-row { flex-direction: column; gap: 8px; } .result-box .value { font-size: 20px; } }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>深圳<span>税后</span>年收入计算器</h1>
+
+<div class="card">
+<h2>基本收入</h2>
+<div class="form-row">
+  <div class="form-group">
+    <label>税前月薪</label>
+    <input type="number" id="monthlySalary" value="30000" step="100">
+    <div class="unit">元/月</div>
+  </div>
+  <div class="form-group">
+    <label>年终奖</label>
+    <input type="number" id="annualBonus" value="0" step="100">
+    <div class="unit">元/年</div>
+  </div>
+  <div class="form-group">
+    <label>年终奖计税方式</label>
+    <select id="bonusTaxMethod">
+      <option value="separate">单独计税（旧政策延续至2027）</option>
+      <option value="merge">合并计税</option>
+    </select>
+  </div>
+</div>
+</div>
+
+<div class="card">
+<h2>五险一金（个人缴纳）</h2>
+<button class="toggle-btn" onclick="togglePanel('socialSettings')">展开/收起 详细设置</button>
+<div class="form-row">
+  <div class="form-group">
+    <label>养老保险比例</label>
+    <input type="number" id="pensionRate" value="8" step="0.1">
+    <div class="unit">%</div>
+  </div>
+  <div class="form-group">
+    <label>医疗保险比例</label>
+    <input type="number" id="medicalRate" value="2" step="0.1">
+    <div class="unit">%（基本医疗）</div>
+  </div>
+  <div class="form-group">
+    <label>补充医疗比例</label>
+    <input type="number" id="suppMedicalRate" value="0.5" step="0.1">
+    <div class="unit">%</div>
+  </div>
+</div>
+<div class="form-row">
+  <div class="form-group">
+    <label>失业保险比例</label>
+    <input type="number" id="unemployRate" value="0.5" step="0.1">
+    <div class="unit">%</div>
+  </div>
+  <div class="form-group">
+    <label>住房公积金比例</label>
+    <input type="number" id="housingRate" value="12" step="1">
+    <div class="unit">%（深圳5%-12%）</div>
+  </div>
+</div>
+
+<div class="settings-panel" id="socialSettings">
+<div class="form-row">
+  <div class="form-group">
+    <label>养老/医疗基数下限</label>
+    <input type="number" id="pensionBaseMin" value="4492">
+    <div class="unit">元</div>
+  </div>
+  <div class="form-group">
+    <label>养老/医疗基数上限</label>
+    <input type="number" id="pensionBaseMax" value="27501">
+    <div class="unit">元</div>
+  </div>
+</div>
+<div class="form-row">
+  <div class="form-group">
+    <label>失业保险基数下限</label>
+    <input type="number" id="unemployBaseMin" value="2360">
+    <div class="unit">元（深圳最低工资）</div>
+  </div>
+  <div class="form-group">
+    <label>失业保险基数上限</label>
+    <input type="number" id="unemployBaseMax" value="27501">
+    <div class="unit">元</div>
+  </div>
+</div>
+<div class="form-row">
+  <div class="form-group">
+    <label>住房公积金基数下限</label>
+    <input type="number" id="housingBaseMin" value="2360">
+    <div class="unit">元</div>
+  </div>
+  <div class="form-group">
+    <label>住房公积金基数上限</label>
+    <input type="number" id="housingBaseMax" value="41190">
+    <div class="unit">元</div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="card">
+<h2>专项附加扣除</h2>
+<button class="toggle-btn" onclick="togglePanel('deductSettings')">展开/收起 详细设置</button>
+<div class="form-row">
+  <div class="form-group">
+    <label>子女教育</label>
+    <input type="number" id="childEdu" value="0" step="100">
+    <div class="unit">元/月（每个子女2000元）</div>
+  </div>
+  <div class="form-group">
+    <label>继续教育</label>
+    <input type="number" id="continueEdu" value="0" step="100">
+    <div class="unit">元/月（400或4800/年）</div>
+  </div>
+</div>
+<div class="settings-panel" id="deductSettings">
+<div class="form-row">
+  <div class="form-group">
+    <label>住房贷款利息</label>
+    <input type="number" id="housingLoan" value="0" step="100">
+    <div class="unit">元/月（1000元，首套房）</div>
+  </div>
+  <div class="form-group">
+    <label>住房租金</label>
+    <input type="number" id="housingRent" value="0" step="100">
+    <div class="unit">元/月（深圳1500元）</div>
+  </div>
+</div>
+<div class="form-row">
+  <div class="form-group">
+    <label>赡养老人</label>
+    <input type="number" id="elderCare" value="0" step="100">
+    <div class="unit">元/月（独生子女3000元）</div>
+  </div>
+  <div class="form-group">
+    <label>大病医疗</label>
+    <input type="number" id="bigMedical" value="0" step="100">
+    <div class="unit">元/年（15000-80000限额）</div>
+  </div>
+</div>
+<div class="form-row">
+  <div class="form-group">
+    <label>3岁以下婴幼儿照护</label>
+    <input type="number" id="babyCare" value="0" step="100">
+    <div class="unit">元/月（每个子女2000元）</div>
+  </div>
+</div>
+<div class="help-text">注：住房贷款利息与住房租金不可同时扣除。大病医疗为年度限额扣除。</div>
+</div>
+</div>
+
+<div class="card">
+<h2>个税税率表（2025年累计预扣法）</h2>
+<button class="toggle-btn" onclick="togglePanel('taxSettings')">展开/收起 税率设置</button>
+<div class="settings-panel" id="taxSettings">
+<table id="taxTable">
+<thead><tr><th>级数</th><th>累计预扣预缴应纳税所得额</th><th>税率(%)</th><th>速算扣除数</th></tr></thead>
+<tbody id="taxTableBody"></tbody>
+</table>
+<div class="form-row" style="margin-top:12px">
+  <div class="form-group">
+    <label>起征点</label>
+    <input type="number" id="threshold" value="5000">
+    <div class="unit">元/月</div>
+  </div>
+</div>
+</div>
+</div>
+
+<button class="calc-btn" onclick="calculate()">计 算</button>
+
+<div class="result-section" id="resultSection" style="display:none">
+<div class="card">
+<h2>计算结果</h2>
+<div class="month-switch">
+  <button class="active" onclick="switchView('annual', this)">年度汇总</button>
+  <button onclick="switchView('monthly', this)">月度明细</button>
+</div>
+
+<div id="annualView">
+<div class="result-summary">
+  <div class="result-box highlight">
+    <div class="label">税后年收入</div>
+    <div class="value" id="annualNet">0</div>
+  </div>
+  <div class="result-box">
+    <div class="label">税前年收入</div>
+    <div class="value" id="annualGross">0</div>
+  </div>
+  <div class="result-box">
+    <div class="label">五险一金（个人）</div>
+    <div class="value small" id="annualInsurance">0</div>
+  </div>
+  <div class="result-box">
+    <div class="label">个人所得税</div>
+    <div class="value small" id="annualTax">0</div>
+  </div>
+</div>
+<table>
+<thead><tr><th>项目</th><th>金额（元）</th><th>占比</th></tr></thead>
+<tbody id="annualDetail"></tbody>
+</table>
+<div id="bonusDetail" style="display:none">
+<h3 style="margin-top:16px;font-size:15px;color:#1a1a2e">年终奖计税明细</h3>
+<table>
+<thead><tr><th>项目</th><th>金额（元）</th></tr></thead>
+<tbody id="bonusDetailBody"></tbody>
+</table>
+</div>
+</div>
+
+<div id="monthlyView" style="display:none">
+<table>
+<thead><tr><th>月份</th><th>税前月薪</th><th>五险一金</th><th>专项扣除</th><th>累计应税所得</th><th>适用税率</th><th>当月个税</th><th>税后月薪</th></tr></thead>
+<tbody id="monthlyDetail"></tbody>
+</table>
+</div>
+
+<div class="tax-detail" id="taxCalcDetail"></div>
+</div>
+</div>
+</div>
+
+<script>
+const defaultTaxBrackets = [
+  { upper: 36000, rate: 3, deduction: 0 },
+  { upper: 144000, rate: 10, deduction: 2520 },
+  { upper: 300000, rate: 20, deduction: 16920 },
+  { upper: 420000, rate: 25, deduction: 31920 },
+  { upper: 660000, rate: 30, deduction: 52920 },
+  { upper: 960000, rate: 35, deduction: 85920 },
+  { upper: Infinity, rate: 45, deduction: 181920 }
+];
+
+function initTaxTable() {
+  const tbody = document.getElementById('taxTableBody');
+  tbody.innerHTML = '';
+  defaultTaxBrackets.forEach((b, i) => {
+    const upperStr = b.upper === Infinity ? '以上' : b.upper.toLocaleString();
+    tbody.innerHTML += `<tr>
+      <td>${i + 1}</td>
+      <td>${i === 0 ? '0 - ' : (defaultTaxBrackets[i-1].upper === Infinity ? '...' : defaultTaxBrackets[i-1].upper.toLocaleString()) + ' - '}${upperStr}</td>
+      <td><input type="number" value="${b.rate}" data-bracket="${i}" data-field="rate" step="1" style="width:60px;text-align:center"></td>
+      <td><input type="number" value="${b.deduction}" data-bracket="${i}" data-field="deduction" step="1" style="width:80px;text-align:center"></td>
+    </tr>`;
+  });
+}
+
+function getTaxBrackets() {
+  const inputs = document.querySelectorAll('#taxTableBody input');
+  const brackets = [];
+  inputs.forEach(inp => {
+    const i = parseInt(inp.dataset.bracket);
+    const field = inp.dataset.field;
+    if (!brackets[i]) brackets[i] = { ...defaultTaxBrackets[i] };
+    brackets[i][field] = parseFloat(inp.value);
+  });
+  brackets[brackets.length - 1].upper = Infinity;
+  return brackets;
+}
+
+function togglePanel(id) {
+  const panel = document.getElementById(id);
+  panel.classList.toggle('show');
+}
+
+function clamp(val, min, max) {
+  return Math.min(Math.max(val, min), max);
+}
+
+function getBase(salary, min, max) {
+  return clamp(salary, min, max);
+}
+
+function fmt(n) {
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function pct(n, total) {
+  if (total === 0) return '0.00%';
+  return (n / total * 100).toFixed(2) + '%';
+}
+
+function calcMonthlyInsurance(salary) {
+  const pensionRate = parseFloat(document.getElementById('pensionRate').value) / 100;
+  const medicalRate = parseFloat(document.getElementById('medicalRate').value) / 100;
+  const suppMedicalRate = parseFloat(document.getElementById('suppMedicalRate').value) / 100;
+  const unemployRate = parseFloat(document.getElementById('unemployRate').value) / 100;
+  const housingRate = parseFloat(document.getElementById('housingRate').value) / 100;
+
+  const pensionBaseMin = parseFloat(document.getElementById('pensionBaseMin').value);
+  const pensionBaseMax = parseFloat(document.getElementById('pensionBaseMax').value);
+  const unemployBaseMin = parseFloat(document.getElementById('unemployBaseMin').value);
+  const unemployBaseMax = parseFloat(document.getElementById('unemployBaseMax').value);
+  const housingBaseMin = parseFloat(document.getElementById('housingBaseMin').value);
+  const housingBaseMax = parseFloat(document.getElementById('housingBaseMax').value);
+
+  const pensionBase = getBase(salary, pensionBaseMin, pensionBaseMax);
+  const medicalBase = getBase(salary, pensionBaseMin, pensionBaseMax);
+  const unemployBase = getBase(salary, unemployBaseMin, unemployBaseMax);
+  const housingBase = getBase(salary, housingBaseMin, housingBaseMax);
+
+  const pension = pensionBase * pensionRate;
+  const medical = medicalBase * medicalRate;
+  const suppMedical = medicalBase * suppMedicalRate;
+  const unemploy = unemployBase * unemployRate;
+  const housing = housingBase * housingRate;
+
+  return {
+    pension, medical, suppMedical, unemploy, housing,
+    total: pension + medical + suppMedical + unemploy + housing,
+    pensionBase, medicalBase, unemployBase, housingBase
+  };
+}
+
+function getMonthlyDeduction() {
+  const childEdu = parseFloat(document.getElementById('childEdu').value);
+  const continueEdu = parseFloat(document.getElementById('continueEdu').value);
+  const housingLoan = parseFloat(document.getElementById('housingLoan').value);
+  const housingRent = parseFloat(document.getElementById('housingRent').value);
+  const elderCare = parseFloat(document.getElementById('elderCare').value);
+  const babyCare = parseFloat(document.getElementById('babyCare').value);
+  const bigMedicalAnnual = parseFloat(document.getElementById('bigMedical').value);
+  const bigMedical = bigMedicalAnnual / 12;
+  return childEdu + continueEdu + housingLoan + housingRent + elderCare + babyCare + bigMedical;
+}
+
+function calcTaxOnAmount(taxableAmount, brackets) {
+  for (const b of brackets) {
+    if (taxableAmount <= b.upper) {
+      return taxableAmount * b.rate / 100 - b.deduction;
+    }
+  }
+  return 0;
+}
+
+function calcBonusTaxSeparate(bonus, brackets) {
+  const monthlyBonus = bonus / 12;
+  for (const b of brackets) {
+    if (monthlyBonus <= b.upper) {
+      return bonus * b.rate / 100 - b.deduction;
+    }
+  }
+  return 0;
+}
+
+function calculate() {
+  const monthlySalary = parseFloat(document.getElementById('monthlySalary').value) || 0;
+  const annualBonus = parseFloat(document.getElementById('annualBonus').value) || 0;
+  const bonusTaxMethod = document.getElementById('bonusTaxMethod').value;
+  const threshold = parseFloat(document.getElementById('threshold').value);
+  const brackets = getTaxBrackets();
+
+  const insurance = calcMonthlyInsurance(monthlySalary);
+  const monthlyDeduction = getMonthlyDeduction();
+
+  const monthlyTotalDeduction = insurance.total + threshold + monthlyDeduction;
+  const monthlyTaxable = monthlySalary - monthlyTotalDeduction;
+
+  let monthlyData = [];
+  let cumulativeTaxable = 0;
+  let cumulativeTax = 0;
+  let totalTax = 0;
+  let totalInsurance = 0;
+  let totalNet = 0;
+
+  for (let m = 1; m <= 12; m++) {
+    cumulativeTaxable += monthlyTaxable;
+    if (cumulativeTaxable < 0) cumulativeTaxable = 0;
+
+    let currentBracketRate = 0;
+    for (const b of brackets) {
+      if (cumulativeTaxable <= b.upper) {
+        currentBracketRate = b.rate;
+        break;
+      }
+    }
+
+    const taxThisMonth = calcTaxOnAmount(cumulativeTaxable, brackets) - cumulativeTax;
+    cumulativeTax += taxThisMonth;
+
+    const netThisMonth = monthlySalary - insurance.total - taxThisMonth;
+    totalInsurance += insurance.total;
+    totalTax += taxThisMonth;
+    totalNet += netThisMonth;
+
+    monthlyData.push({
+      month: m,
+      salary: monthlySalary,
+      insurance: insurance.total,
+      deduction: monthlyTotalDeduction,
+      cumTaxable: cumulativeTaxable,
+      rate: currentBracketRate,
+      tax: taxThisMonth,
+      net: netThisMonth
+    });
+  }
+
+  let bonusTax = 0;
+  let bonusNet = 0;
+
+  if (bonusTaxMethod === 'separate') {
+    bonusTax = calcBonusTaxSeparate(annualBonus, brackets);
+    bonusNet = annualBonus - bonusTax;
+  } else {
+    const lastCumTaxable = monthlyData[11].cumTaxable;
+    const mergedTaxable = lastCumTaxable + annualBonus;
+    const mergedTax = calcTaxOnAmount(mergedTaxable, brackets);
+    bonusTax = mergedTax - totalTax;
+    bonusNet = annualBonus - bonusTax;
+  }
+
+  const annualGross = monthlySalary * 12 + annualBonus;
+  const annualNet = totalNet + bonusNet;
+  const annualTotalTax = totalTax + bonusTax;
+  const annualTotalInsurance = totalInsurance;
+
+  document.getElementById('resultSection').style.display = 'block';
+  document.getElementById('annualNet').textContent = fmt(annualNet);
+  document.getElementById('annualGross').textContent = fmt(annualGross);
+  document.getElementById('annualInsurance').textContent = fmt(annualTotalInsurance);
+  document.getElementById('annualTax').textContent = fmt(annualTotalTax);
+
+  document.getElementById('annualDetail').innerHTML = `
+    <tr><td>税前月薪 × 12</td><td>${fmt(monthlySalary * 12)}</td><td>${pct(monthlySalary * 12, annualGross)}</td></tr>
+    <tr><td>年终奖</td><td>${fmt(annualBonus)}</td><td>${pct(annualBonus, annualGross)}</td></tr>
+    <tr class="total-row"><td>税前年收入</td><td>${fmt(annualGross)}</td><td>100%</td></tr>
+    <tr><td>养老保险（个人）× 12</td><td>${fmt(insurance.pension * 12)}</td><td>${pct(insurance.pension * 12, annualGross)}</td></tr>
+    <tr><td>医疗保险（个人）× 12</td><td>${fmt(insurance.medical * 12)}</td><td>${pct(insurance.medical * 12, annualGross)}</td></tr>
+    <tr><td>补充医疗（个人）× 12</td><td>${fmt(insurance.suppMedical * 12)}</td><td>${pct(insurance.suppMedical * 12, annualGross)}</td></tr>
+    <tr><td>失业保险（个人）× 12</td><td>${fmt(insurance.unemploy * 12)}</td><td>${pct(insurance.unemploy * 12, annualGross)}</td></tr>
+    <tr><td>住房公积金（个人）× 12</td><td>${fmt(insurance.housing * 12)}</td><td>${pct(insurance.housing * 12, annualGross)}</td></tr>
+    <tr class="total-row"><td>五险一金合计（个人）</td><td>${fmt(annualTotalInsurance)}</td><td>${pct(annualTotalInsurance, annualGross)}</td></tr>
+    <tr><td>月度个税合计</td><td>${fmt(totalTax)}</td><td>${pct(totalTax, annualGross)}</td></tr>
+    ${annualBonus > 0 ? `<tr><td>年终奖个税</td><td>${fmt(bonusTax)}</td><td>${pct(bonusTax, annualGross)}</td></tr>` : ''}
+    <tr class="total-row"><td>个人所得税合计</td><td>${fmt(annualTotalTax)}</td><td>${pct(annualTotalTax, annualGross)}</td></tr>
+    <tr class="total-row" style="background:#c8e6c9"><td>税后年收入</td><td>${fmt(annualNet)}</td><td>${pct(annualNet, annualGross)}</td></tr>
+  `;
+
+  if (annualBonus > 0) {
+    document.getElementById('bonusDetail').style.display = 'block';
+    document.getElementById('bonusDetailBody').innerHTML = `
+      <tr><td>年终奖金额</td><td>${fmt(annualBonus)}</td></tr>
+      <tr><td>计税方式</td><td>${bonusTaxMethod === 'separate' ? '单独计税' : '合并计税'}</td></tr>
+      ${bonusTaxMethod === 'separate' ? `<tr><td>年终奖/12 = ${fmt(annualBonus / 12)}，查找适用税率</td><td>-</td></tr>` : ''}
+      <tr><td>年终奖个税</td><td>${fmt(bonusTax)}</td></tr>
+      <tr class="total-row"><td>年终奖税后金额</td><td>${fmt(bonusNet)}</td></tr>
+    `;
+  } else {
+    document.getElementById('bonusDetail').style.display = 'none';
+  }
+
+  document.getElementById('monthlyDetail').innerHTML = monthlyData.map(d => `
+    <tr>
+      <td>${d.month}月</td>
+      <td>${fmt(d.salary)}</td>
+      <td>${fmt(d.insurance)}</td>
+      <td>${fmt(d.deduction)}</td>
+      <td>${fmt(d.cumTaxable)}</td>
+      <td>${d.rate}%</td>
+      <td>${fmt(d.tax)}</td>
+      <td>${fmt(d.net)}</td>
+    </tr>
+  `).join('') + `
+    <tr class="total-row">
+      <td>合计</td>
+      <td>${fmt(monthlySalary * 12)}</td>
+      <td>${fmt(totalInsurance)}</td>
+      <td>${fmt(monthlyTotalDeduction * 12)}</td>
+      <td>-</td>
+      <td>-</td>
+      <td>${fmt(totalTax)}</td>
+      <td>${fmt(totalNet)}</td>
+    </tr>
+  `;
+
+  document.getElementById('taxCalcDetail').innerHTML = `
+    <strong>月度个税计算说明：</strong><br>
+    税前月薪 ${fmt(monthlySalary)} - 五险一金 ${fmt(insurance.total)} - 起征点 ${fmt(threshold)} - 专项附加扣除 ${fmt(monthlyDeduction)} = 月应纳税所得额 ${fmt(monthlyTaxable)}<br>
+    采用累计预扣法，每月累计应纳税所得额对应不同税率级数，当月税额 = 累计税额 - 已缴税额<br>
+    ${annualBonus > 0 ? `<br><strong>年终奖计税说明：</strong>采用${bonusTaxMethod === 'separate' ? '单独计税' : '合并计税'}方式，年终奖个税为 ${fmt(bonusTax)} 元` : ''}
+  `;
+}
+
+function switchView(view, btn) {
+  document.querySelectorAll('.month-switch button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('annualView').style.display = view === 'annual' ? 'block' : 'none';
+  document.getElementById('monthlyView').style.display = view === 'monthly' ? 'block' : 'none';
+}
+
+initTaxTable();
+calculate();
+</script>
+</body>
+</html>

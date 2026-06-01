@@ -24,11 +24,10 @@ ReAct 循环的每一步：
 import re
 import os
 import sys
-import io
 
 if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from tools import TOOL_REGISTRY, execute_tool
 
@@ -43,11 +42,13 @@ class SimpleAgent:
     - Agent 有自主决策能力：根据观察结果决定下一步做什么
     """
 
-    def __init__(self, api_key: str = None, model: str = "gpt-3.5-turbo", max_iterations: int = 5):
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
-        self.model = model
+    def __init__(self, api_key: str = None, model: str = None,
+                 base_url: str = None, max_iterations: int = 5):
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("ZHIPUAI_API_KEY")
+        self.base_url = base_url or os.environ.get("OPENAI_BASE_URL") or os.environ.get("ZHIPUAI_BASE_URL")
+        self.model = model or os.environ.get("LLM_MODEL", "glm-4-flash")
         self.max_iterations = max_iterations
-        self.history = []  # Agent 的记忆：记录所有 Thought/Action/Observation
+        self.history = []
 
     def _build_system_prompt(self) -> str:
         """
@@ -141,7 +142,10 @@ Action: finish[你的最终答案]
         """
         try:
             from openai import OpenAI
-            client = OpenAI(api_key=self.api_key)
+            client_kwargs = {"api_key": self.api_key}
+            if self.base_url:
+                client_kwargs["base_url"] = self.base_url
+            client = OpenAI(**client_kwargs)
 
             messages = [
                 {"role": "system", "content": self._build_system_prompt()},
@@ -151,7 +155,7 @@ Action: finish[你的最终答案]
             completion = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=0,  # temperature=0 让输出更稳定、更遵循格式
+                temperature=0,
                 max_tokens=500,
             )
             return completion.choices[0].message.content
@@ -340,7 +344,7 @@ if __name__ == "__main__":
 ║  ChatBot: Question → Answer (一步直接回答)                     ║
 ║  Agent:   思考→行动→观察→再思考 (多步循环解决问题)               ║
 ║                                                              ║
-║  支持 OpenAI API 和模拟推理两种模式                             ║
+║  支持 OpenAI/GLM 等 API 和模拟推理两种模式                      ║
 ╚══════════════════════════════════════════════════════════════╝
 """)
 
@@ -356,6 +360,13 @@ if __name__ == "__main__":
         agent.reset()
         print()
 
-    print("\n[提示] 设置 OPENAI_API_KEY 环境变量可使用真实 LLM 推理")
-    print("   例如: set OPENAI_API_KEY=sk-xxx  (Windows)")
-    print("   或:   export OPENAI_API_KEY=sk-xxx  (Linux/Mac)")
+    print("\n[提示] 配置 LLM API 才能使用真实推理引擎:")
+    print("   智谱GLM (推荐):")
+    print("     set ZHIPUAI_API_KEY=your_zhipuai_key      (Windows CMD)")
+    print("     set ZHIPUAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4  (Windows CMD)")
+    print("     $env:ZHIPUAI_API_KEY='your_key'           (PowerShell)")
+    print("     $env:ZHIPUAI_BASE_URL='https://open.bigmodel.cn/api/paas/v4' (PowerShell)")
+    print("   OpenAI:")
+    print("     set OPENAI_API_KEY=sk-xxx                  (Windows CMD)")
+    print("     set OPENAI_BASE_URL=https://api.openai.com/v1  (Windows CMD)")
+    print("   模型名可通过 LLM_MODEL 环境变量指定 (默认 glm-4-flash)")

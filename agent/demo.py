@@ -1,11 +1,25 @@
 """
 Demo Script - Agent 工作原理演示
-=================================
+================================
 运行此脚本可以看到 Agent 的完整工作流程：
 Thought → Action → Observation 的循环过程
 
 对比 ChatBot 模式和 Agent 模式的差异
+
+配置方法 (以智谱GLM为例):
+  PowerShell:
+    $env:ZHIPUAI_API_KEY = 'your_api_key'
+    $env:ZHIPUAI_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4'
+  CMD:
+    set ZHIPUAI_API_KEY=your_api_key
+    set ZHIPUAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4
 """
+
+import sys
+
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from agent import SimpleAgent
 

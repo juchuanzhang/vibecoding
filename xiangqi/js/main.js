@@ -12,7 +12,6 @@ class MainController {
         const canvas = document.getElementById('chessBoard');
         this.boardRenderer = new BoardRenderer(canvas);
         this.fenInput = document.getElementById('fenInput');
-
         this.bindEvents();
 
         showLoading('正在加载引擎...');
@@ -27,9 +26,7 @@ class MainController {
     }
 
     bindEvents() {
-        const canvas = document.getElementById('chessBoard');
-        canvas.addEventListener('click', (e) => this.onBoardClick(e));
-
+        document.getElementById('chessBoard').addEventListener('click', (e) => this.onBoardClick(e));
         document.getElementById('btnNewGame').addEventListener('click', () => this.onNewGame());
         document.getElementById('btnUndo').addEventListener('click', () => this.onUndo());
         document.getElementById('btnAnalyze').addEventListener('click', () => this.onAnalyze());
@@ -38,7 +35,6 @@ class MainController {
         });
         document.getElementById('btnImport').addEventListener('click', () => this.onImport());
         document.getElementById('btnExport').addEventListener('click', () => this.onExport());
-
         window.addEventListener('resize', () => {
             this.boardRenderer.resize();
             this.updateView();
@@ -48,13 +44,11 @@ class MainController {
     onBoardClick(event) {
         const pos = this.boardRenderer.handleClick(event);
         if (!pos) return;
-
         if (this.game.isGameOver() !== 'playing') return;
 
         if (this.boardRenderer.selectedPos) {
             const from = this.boardRenderer.selectedPos;
             const to = pos;
-
             const isLegal = this.game.getLegalTargets(from).some(t => t.x === to.x && t.y === to.y);
 
             if (isLegal) {
@@ -68,8 +62,9 @@ class MainController {
                 return;
             }
 
-            const targetPiece = this.getCurrentPieces().find(p => p.x === pos.x && p.y === pos.y);
-            if (targetPiece && targetPiece.side === this.game.getBoardState().sideToMove) {
+            const state = this.game.getBoardState();
+            const targetPiece = state ? state.pieces.find(p => p.x === pos.x && p.y === pos.y) : null;
+            if (targetPiece && targetPiece.side === state.sideToMove) {
                 this.boardRenderer.selectedPos = pos;
                 this.boardRenderer.legalTargets = this.game.getLegalTargets(pos);
                 this.updateView();
@@ -87,7 +82,9 @@ class MainController {
                 this.boardRenderer.selectedPos = pos;
                 this.boardRenderer.legalTargets = this.game.getLegalTargets(pos);
                 this.updateView();
-}
+            }
+        }
+    }
 
     autoAnalyze() {
         if (this.game.isAnalyzing) return;
@@ -103,13 +100,6 @@ class MainController {
             this.updateView();
             hideAnalyzing();
         }, 50);
-    }
-}
-    }
-
-    getCurrentPieces() {
-        const state = this.game.getBoardState();
-        return state ? state.pieces : [];
     }
 
     onNewGame() {
@@ -135,10 +125,8 @@ class MainController {
 
     onAnalyze() {
         if (this.game.isAnalyzing) return;
-
         const depth = this.game.analysisDepth;
         showAnalyzing();
-
         setTimeout(() => {
             const result = this.game.analyze(depth);
             if (result) {
@@ -154,15 +142,9 @@ class MainController {
 
     onImport() {
         const fen = this.fenInput.value.trim();
-        if (!fen) {
-            showError('请输入FEN字符串');
-            return;
-        }
+        if (!fen) { showError('请输入FEN字符串'); return; }
         const success = this.game.importFEN(fen);
-        if (!success) {
-            showError('FEN格式无效');
-            return;
-        }
+        if (!success) { showError('FEN格式无效'); return; }
         this.boardRenderer.selectedPos = null;
         this.boardRenderer.legalTargets = [];
         this.boardRenderer.recommendedMove = null;
@@ -174,21 +156,18 @@ class MainController {
     }
 
     onExport() {
-        const fen = this.game.exportFEN();
-        this.fenInput.value = fen;
+        this.fenInput.value = this.game.exportFEN();
     }
 
     updateView() {
         const state = this.game.getBoardState();
         if (!state) return;
-
         this.boardRenderer.pieces = state.pieces;
         this.boardRenderer.sideToMove = state.sideToMove;
         this.boardRenderer.lastMove = state.lastMove;
         this.boardRenderer.isInCheck = state.isInCheck;
         this.boardRenderer.gameOver = state.gameOver;
         this.boardRenderer.render();
-
         this.updateSideInfo(state);
         this.updateHistoryPanel();
         this.updateScoreDisplay();
@@ -207,12 +186,8 @@ class MainController {
             sideEl.className = 'side-info black-side';
         }
 
-        if (state.isInCheck) {
-            checkEl.textContent = '将军！';
-            checkEl.style.display = 'block';
-        } else {
-            checkEl.style.display = 'none';
-        }
+        checkEl.style.display = state.isInCheck ? 'block' : 'none';
+        if (state.isInCheck) checkEl.textContent = '将军！';
 
         if (state.gameOver === 'red_win') {
             gameOverEl.textContent = '红方胜！';
@@ -272,48 +247,38 @@ class MainController {
         const statusInfo = document.getElementById('statusInfo');
 
         candidatesList.innerHTML = '';
-for (let i = 0; i < result.candidates.length; i++) {
-                const c = result.candidates[i];
-                const li = document.createElement('li');
-                li.className = 'candidate-item' + (i === 0 ? ' best' : '');
-                li.innerHTML = `<span>${c.description}</span><span>${c.score > 0 ? '+' + c.score : c.score}</span>`;
-                candidatesList.appendChild(li);
-            }
+        for (let i = 0; i < result.candidates.length; i++) {
+            const c = result.candidates[i];
+            const li = document.createElement('li');
+            li.className = 'candidate-item' + (i === 0 ? ' best' : '');
+            li.innerHTML = `<span>${c.description}</span><span>${c.score > 0 ? '+' + c.score : c.score}</span>`;
+            candidatesList.appendChild(li);
+        }
 
-            let pathText = '';
-            for (let i = 0; i < result.searchPath.length; i++) {
-                const m = result.searchPath[i];
-                const desc = this.game.describeMove(m.from.x, m.from.y, m.to.x, m.to.y);
-                pathText += desc + ' ';
-            }
+        let pathText = '';
+        for (let i = 0; i < result.searchPath.length; i++) {
+            const m = result.searchPath[i];
+            const desc = this.game.describeMove(m.from.x, m.from.y, m.to.x, m.to.y);
+            pathText += desc + ' ';
+        }
         pathDisplay.textContent = pathText || '无推演路径';
-
         statusInfo.innerHTML = `节点: ${result.nodesSearched} | 深度: ${this.game.analysisDepth}`;
     }
 
     updateHistoryPanel() {
         const historyEl = document.getElementById('historyList');
-        const state = this.game.getBoardState();
-
         let html = '';
         for (let i = 0; i < this.game.moveHistory.length; i++) {
             const m = this.game.moveHistory[i];
             const side = i % 2 === 0 ? '红' : '黑';
             const num = Math.floor(i / 2) + 1;
             const desc = m.description || this.game.describeMove(m.from.x, m.from.y, m.to.x, m.to.y);
-            html += `<div class="history-item">
-                <span>${num}. ${side}</span>
-                <span>${desc}</span>
-            </div>`;
+            html += `<div class="history-item"><span>${num}. ${side}</span><span>${desc}</span></div>`;
         }
         historyEl.innerHTML = html;
-
-        if (historyEl.lastChild) {
-            historyEl.lastChild.scrollIntoView();
-        }
+        if (historyEl.lastChild) historyEl.lastChild.scrollIntoView();
     }
-
-    }
+}
 
 function showLoading(msg) {
     const el = document.getElementById('loadingMsg');

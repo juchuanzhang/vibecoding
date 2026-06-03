@@ -8,6 +8,7 @@ export class BoardRenderer {
         this.legalTargets = [];
         this.lastMove = null;
         this.recommendedMove = null;
+        this.candidates = [];
         this.searchPath = [];
         this.pieces = [];
         this.sideToMove = 'red';
@@ -50,7 +51,7 @@ export class BoardRenderer {
         this.drawRiver();
         this.drawPalaceLines();
         this.drawLastMove();
-        this.drawRecommendedMove();
+        this.drawCandidateArrows();
         this.drawLegalTargets();
         this.drawPieces();
         this.drawSelectedHighlight();
@@ -138,28 +139,49 @@ export class BoardRenderer {
         this.ctx.fill();
     }
 
-    drawRecommendedMove() {
-        if (!this.recommendedMove) return;
+    drawCandidateArrows() {
+        if (!this.candidates || this.candidates.length === 0) {
+            if (this.recommendedMove) {
+                this.drawArrow(this.recommendedMove, '#2ecc71', 3);
+            }
+            return;
+        }
 
-        const from = this.posToPixel(this.recommendedMove.from);
-        const to = this.posToPixel(this.recommendedMove.to);
+        const arrowStyles = [
+            { color: '#2ecc71', width: 4 },
+            { color: '#f1c40f', width: 2.5 },
+            { color: '#e67e22', width: 1.5 },
+        ];
 
-        this.ctx.strokeStyle = '#2ecc71';
-        this.ctx.lineWidth = 3;
+        for (let i = 0; i < this.candidates.length; i++) {
+            const c = this.candidates[i];
+            const style = arrowStyles[i] || arrowStyles[2];
+            this.drawArrow({ from: c.from, to: c.to }, style.color, style.width);
+        }
+    }
+
+    drawArrow(move, color, width) {
+        const from = this.posToPixel(move.from);
+        const to = this.posToPixel(move.to);
+
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = width;
+        this.ctx.globalAlpha = 0.85;
         this.ctx.beginPath();
         this.ctx.moveTo(from.x, from.y);
         this.ctx.lineTo(to.x, to.y);
         this.ctx.stroke();
 
-        const headLen = this.cellSize * 0.3;
+        const headLen = this.cellSize * 0.25;
         const angle = Math.atan2(to.y - from.y, to.x - from.x);
         this.ctx.beginPath();
         this.ctx.moveTo(to.x, to.y);
         this.ctx.lineTo(to.x - headLen * Math.cos(angle - Math.PI / 6), to.y - headLen * Math.sin(angle - Math.PI / 6));
         this.ctx.lineTo(to.x - headLen * Math.cos(angle + Math.PI / 6), to.y - headLen * Math.sin(angle + Math.PI / 6));
         this.ctx.closePath();
-        this.ctx.fillStyle = '#2ecc71';
+        this.ctx.fillStyle = color;
         this.ctx.fill();
+        this.ctx.globalAlpha = 1.0;
     }
 
     drawLegalTargets() {

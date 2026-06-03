@@ -29,9 +29,10 @@ export class Game {
 
     makeMove(from, to) {
         if (!this.engine) return false;
+        const desc = this.engine.describe_move(from.x, from.y, to.x, to.y);
         const result = this.engine.make_move(from.x, from.y, to.x, to.y);
         if (result) {
-            this.moveHistory.push({ from, to });
+            this.moveHistory.push({ from, to, description: desc });
             this.selectedPos = null;
             this.currentAnalysis = null;
         }
@@ -109,10 +110,12 @@ export class Game {
             const candidates = [];
             const cands = result.get_candidates();
             for (let i = 0; i < cands.length; i++) {
+                const cDesc = this.engine.describe_move(cands[i].get_from_x(), cands[i].get_from_y(), cands[i].get_to_x(), cands[i].get_to_y());
                 candidates.push({
                     from: { x: cands[i].get_from_x(), y: cands[i].get_from_y() },
                     to: { x: cands[i].get_to_x(), y: cands[i].get_to_y() },
-                    score: cands[i].get_score()
+                    score: cands[i].get_score(),
+                    description: cDesc
                 });
                 cands[i].free();
             }

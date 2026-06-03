@@ -62,6 +62,9 @@ class MainController {
                 this.boardRenderer.selectedPos = null;
                 this.boardRenderer.legalTargets = [];
                 this.updateView();
+                if (this.game.isGameOver() === 'playing') {
+                    this.autoAnalyze();
+                }
                 return;
             }
 
@@ -84,8 +87,24 @@ class MainController {
                 this.boardRenderer.selectedPos = pos;
                 this.boardRenderer.legalTargets = this.game.getLegalTargets(pos);
                 this.updateView();
+}
+
+    autoAnalyze() {
+        if (this.game.isAnalyzing) return;
+        showAnalyzing();
+        setTimeout(() => {
+            const result = this.game.analyze(this.game.analysisDepth);
+            if (result) {
+                this.boardRenderer.candidates = result.candidates;
+                this.boardRenderer.recommendedMove = result.bestMove;
+                this.boardRenderer.searchPath = result.searchPath;
+                this.updateAnalysisPanel(result);
             }
-        }
+            this.updateView();
+            hideAnalyzing();
+        }, 50);
+    }
+}
     }
 
     getCurrentPieces() {
@@ -98,6 +117,7 @@ class MainController {
         this.boardRenderer.selectedPos = null;
         this.boardRenderer.legalTargets = [];
         this.boardRenderer.recommendedMove = null;
+        this.boardRenderer.candidates = [];
         this.boardRenderer.searchPath = [];
         this.updateView();
     }
@@ -106,7 +126,11 @@ class MainController {
         this.game.undoMove();
         this.boardRenderer.selectedPos = null;
         this.boardRenderer.legalTargets = [];
+        this.boardRenderer.candidates = [];
         this.updateView();
+        if (this.game.isGameOver() === 'playing') {
+            this.autoAnalyze();
+        }
     }
 
     onAnalyze() {
@@ -118,6 +142,7 @@ class MainController {
         setTimeout(() => {
             const result = this.game.analyze(depth);
             if (result) {
+                this.boardRenderer.candidates = result.candidates;
                 this.boardRenderer.recommendedMove = result.bestMove;
                 this.boardRenderer.searchPath = result.searchPath;
                 this.updateAnalysisPanel(result);
@@ -141,7 +166,11 @@ class MainController {
         this.boardRenderer.selectedPos = null;
         this.boardRenderer.legalTargets = [];
         this.boardRenderer.recommendedMove = null;
+        this.boardRenderer.candidates = [];
         this.updateView();
+        if (this.game.isGameOver() === 'playing') {
+            this.autoAnalyze();
+        }
     }
 
     onExport() {
@@ -247,8 +276,7 @@ for (let i = 0; i < result.candidates.length; i++) {
                 const c = result.candidates[i];
                 const li = document.createElement('li');
                 li.className = 'candidate-item' + (i === 0 ? ' best' : '');
-                const desc = this.game.describeMove(c.from.x, c.from.y, c.to.x, c.to.y);
-                li.innerHTML = `<span>${desc}</span><span>${c.score > 0 ? '+' + c.score : c.score}</span>`;
+                li.innerHTML = `<span>${c.description}</span><span>${c.score > 0 ? '+' + c.score : c.score}</span>`;
                 candidatesList.appendChild(li);
             }
 
@@ -272,7 +300,7 @@ for (let i = 0; i < result.candidates.length; i++) {
             const m = this.game.moveHistory[i];
             const side = i % 2 === 0 ? '红' : '黑';
             const num = Math.floor(i / 2) + 1;
-            const desc = this.game.describeMove(m.from.x, m.from.y, m.to.x, m.to.y);
+            const desc = m.description || this.game.describeMove(m.from.x, m.from.y, m.to.x, m.to.y);
             html += `<div class="history-item">
                 <span>${num}. ${side}</span>
                 <span>${desc}</span>

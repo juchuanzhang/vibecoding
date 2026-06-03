@@ -367,4 +367,62 @@ impl XiangQiEngine {
             None => false,
         }
     }
+
+    pub fn describe_move(&self, from_x: u8, from_y: u8, to_x: u8, to_y: u8) -> String {
+        let from = Position::new(from_x, from_y);
+        let _to = Position::new(to_x, to_y);
+        let piece = self.board.piece_at(from);
+        if piece.is_none() {
+            return format!("({},{})→({},{})", from_x, from_y, to_x, to_y);
+        }
+        let piece = piece.unwrap();
+        let name = piece.display_name();
+
+        let red_cols = ["九", "八", "七", "六", "五", "四", "三", "二", "一"];
+        let black_cols = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+        let red_nums = ["一", "二", "三", "四", "五", "六", "七", "八", "九"];
+        let black_nums = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+        let from_col = match piece.side {
+            Side::Red => red_cols[from_x as usize],
+            Side::Black => black_cols[from_x as usize],
+        };
+
+        let dx = to_x as i32 - from_x as i32;
+        let dy = to_y as i32 - from_y as i32;
+
+        let is_line_piece = piece.piece_type == PieceType::Rook
+            || piece.piece_type == PieceType::Cannon
+            || piece.piece_type == PieceType::Pawn
+            || piece.piece_type == PieceType::King;
+
+        let action = if dx == 0 {
+            match piece.side {
+                Side::Red => if dy < 0 { "进" } else { "退" },
+                Side::Black => if dy > 0 { "进" } else { "退" },
+            }
+        } else if dy == 0 {
+            "平"
+        } else {
+            match piece.side {
+                Side::Red => if dy < 0 { "进" } else { "退" },
+                Side::Black => if dy > 0 { "进" } else { "退" },
+            }
+        };
+
+        let dest = if dx == 0 && is_line_piece {
+            let steps = dy.abs() as u8;
+            match piece.side {
+                Side::Red => red_nums[(steps - 1) as usize],
+                Side::Black => black_nums[(steps - 1) as usize],
+            }
+        } else {
+            match piece.side {
+                Side::Red => red_cols[to_x as usize],
+                Side::Black => black_cols[to_x as usize],
+            }
+        };
+
+        format!("{}{}{}{}", name, from_col, action, dest)
+    }
 }

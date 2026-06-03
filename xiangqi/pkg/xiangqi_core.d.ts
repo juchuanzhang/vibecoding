@@ -63,6 +63,7 @@ export class XiangQiEngine {
     free(): void;
     [Symbol.dispose](): void;
     analyze(depth: number): JsAnalysisResult;
+    describe_move(from_x: number, from_y: number, to_x: number, to_y: number): string;
     evaluate(): number;
     static from_fen(fen: string): XiangQiEngine;
     get_board_state(): JsBoardState;
@@ -117,6 +118,7 @@ export interface InitOutput {
     readonly jsposition_get_y: (a: number) => number;
     readonly jsposition_new: (a: number, b: number) => number;
     readonly xiangqiengine_analyze: (a: number, b: number) => number;
+    readonly xiangqiengine_describe_move: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly xiangqiengine_evaluate: (a: number) => number;
     readonly xiangqiengine_from_fen: (a: number, b: number, c: number) => void;
     readonly xiangqiengine_get_board_state: (a: number) => number;

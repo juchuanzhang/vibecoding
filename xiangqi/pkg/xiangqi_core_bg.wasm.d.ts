@@ -37,6 +37,7 @@ export const jsposition_get_x: (a: number) => number;
 export const jsposition_get_y: (a: number) => number;
 export const jsposition_new: (a: number, b: number) => number;
 export const xiangqiengine_analyze: (a: number, b: number) => number;
+export const xiangqiengine_describe_move: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
 export const xiangqiengine_evaluate: (a: number) => number;
 export const xiangqiengine_from_fen: (a: number, b: number, c: number) => void;
 export const xiangqiengine_get_board_state: (a: number) => number;

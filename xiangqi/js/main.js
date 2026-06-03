@@ -203,6 +203,7 @@ class MainController {
         const score = this.game.getScore();
         const scoreValue = document.getElementById('scoreValue');
         const scoreBarFill = document.getElementById('scoreBarFill');
+        const scoreText = document.getElementById('scoreText');
 
         scoreValue.textContent = score > 0 ? '+' + score : score.toString();
 
@@ -211,22 +212,28 @@ class MainController {
 
         if (score > 0) {
             scoreValue.className = 'score-value score-red';
-            scoreBarFill.style.width = pct + '%';
+            scoreBarFill.style.width = (50 + pct / 2) + '%';
             scoreBarFill.style.background = '#ff4444';
             scoreBarFill.style.marginLeft = 'auto';
             scoreBarFill.style.marginRight = '0';
+            scoreText.textContent = '红方领先 ' + score + ' 分';
+            scoreText.style.color = '#ff4444';
         } else if (score < 0) {
             scoreValue.className = 'score-value score-black';
-            scoreBarFill.style.width = pct + '%';
+            scoreBarFill.style.width = (50 + pct / 2) + '%';
             scoreBarFill.style.background = '#333';
             scoreBarFill.style.marginLeft = '0';
             scoreBarFill.style.marginRight = 'auto';
+            scoreText.textContent = '黑方领先 ' + Math.abs(score) + ' 分';
+            scoreText.style.color = '#aaa';
         } else {
             scoreValue.className = 'score-value score-even';
             scoreBarFill.style.width = '50%';
             scoreBarFill.style.background = '#888';
             scoreBarFill.style.marginLeft = '0';
             scoreBarFill.style.marginRight = '0';
+            scoreText.textContent = '双方均势';
+            scoreText.style.color = '#888';
         }
     }
 
@@ -236,20 +243,21 @@ class MainController {
         const statusInfo = document.getElementById('statusInfo');
 
         candidatesList.innerHTML = '';
-        for (let i = 0; i < result.candidates.length; i++) {
-            const c = result.candidates[i];
-            const li = document.createElement('li');
-            li.className = 'candidate-item' + (i === 0 ? ' best' : '');
-            const desc = this.describeMove(c.from, c.to, result.candidates[i].score > 0 ? 'red' : 'black');
-            li.innerHTML = `<span>${desc}</span><span>${c.score > 0 ? '+' + c.score : c.score}</span>`;
-            candidatesList.appendChild(li);
-        }
+for (let i = 0; i < result.candidates.length; i++) {
+                const c = result.candidates[i];
+                const li = document.createElement('li');
+                li.className = 'candidate-item' + (i === 0 ? ' best' : '');
+                const desc = this.game.describeMove(c.from.x, c.from.y, c.to.x, c.to.y);
+                li.innerHTML = `<span>${desc}</span><span>${c.score > 0 ? '+' + c.score : c.score}</span>`;
+                candidatesList.appendChild(li);
+            }
 
-        let pathText = '';
-        for (let i = 0; i < result.searchPath.length; i++) {
-            const m = result.searchPath[i];
-            pathText += `(${m.from.x},${m.from.y})→(${m.to.x},${m.to.y}) `;
-        }
+            let pathText = '';
+            for (let i = 0; i < result.searchPath.length; i++) {
+                const m = result.searchPath[i];
+                const desc = this.game.describeMove(m.from.x, m.from.y, m.to.x, m.to.y);
+                pathText += desc + ' ';
+            }
         pathDisplay.textContent = pathText || '无推演路径';
 
         statusInfo.innerHTML = `节点: ${result.nodesSearched} | 深度: ${this.game.analysisDepth}`;
@@ -263,12 +271,11 @@ class MainController {
         for (let i = 0; i < this.game.moveHistory.length; i++) {
             const m = this.game.moveHistory[i];
             const side = i % 2 === 0 ? '红' : '黑';
-            const piece = state ? this.findPieceAtTarget(m, i) : null;
-            const pieceName = piece ? piece.name : '?';
             const num = Math.floor(i / 2) + 1;
+            const desc = this.game.describeMove(m.from.x, m.from.y, m.to.x, m.to.y);
             html += `<div class="history-item">
                 <span>${num}. ${side}</span>
-                <span>${pieceName} (${m.from.x},${m.from.y})→(${m.to.x},${m.to.y})</span>
+                <span>${desc}</span>
             </div>`;
         }
         historyEl.innerHTML = html;
@@ -278,31 +285,7 @@ class MainController {
         }
     }
 
-    findPieceAtTarget(move, index) {
-        return null;
     }
-
-    describeMove(from, to, side) {
-        const colNames = side === 'red'
-            ? ['九', '八', '七', '六', '五', '四', '三', '二', '一']
-            : ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
-        const fromCol = colNames[from.x];
-        const toCol = colNames[to.x];
-
-        const dy = to.y - from.y;
-        const dx = to.x - from.x;
-        let action = '';
-        if (dy !== 0 && dx === 0) {
-            action = side === 'red' ? (dy < 0 ? '进' : '退') : (dy > 0 ? '进' : '退');
-        } else if (dx !== 0 && dy === 0) {
-            action = '平';
-        } else {
-            action = side === 'red' ? (dy < 0 ? '进' : '退') : (dy > 0 ? '进' : '退');
-        }
-
-        return `(${from.x},${from.y})→(${to.x},${to.y})`;
-    }
-}
 
 function showLoading(msg) {
     const el = document.getElementById('loadingMsg');

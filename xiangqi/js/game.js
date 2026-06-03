@@ -11,8 +11,7 @@ export class Game {
     async initEngine() {
         try {
             const wasmModule = await import('../pkg/xiangqi_core.js');
-            const wasmPath = new URL('../pkg/xiangqi_core_bg.wasm', window.location.href);
-            await wasmModule.default(wasmPath);
+            await wasmModule.default();
             this.wasmModule = wasmModule;
             this.engine = new wasmModule.XiangQiEngine();
         } catch (e) {
@@ -169,5 +168,10 @@ export class Game {
     isInCheck() {
         if (!this.engine) return false;
         return this.engine.is_in_check();
+    }
+
+    describeMove(fromX, fromY, toX, toY) {
+        if (!this.engine) return `(${fromX},${fromY})→(${toX},${toY})`;
+        return this.engine.describe_move(fromX, fromY, toX, toY);
     }
 }

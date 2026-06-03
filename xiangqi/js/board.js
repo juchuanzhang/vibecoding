@@ -17,9 +17,8 @@ export class BoardRenderer {
     }
 
     resize() {
-        const containerWidth = this.canvas.parentElement.clientWidth;
-        const maxWidth = Math.min(containerWidth - 20, 540);
-        this.cellSize = Math.floor((maxWidth - 2 * this.padding) / 8);
+        this.cellSize = 64;
+        this.padding = 35;
         const boardWidth = this.cellSize * 8 + 2 * this.padding;
         const boardHeight = this.cellSize * 9 + 2 * this.padding;
         this.canvas.width = boardWidth;

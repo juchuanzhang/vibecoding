@@ -1,14 +1,12 @@
 @echo off
+chcp 65001 >nul
 echo ========================================
-echo   象棋分析器 - 启动HTTP服务器
+echo   XiangQi Analyzer - HTTP Server
 echo ========================================
 echo.
-echo 请在浏览器中访问: http://localhost:8080
+echo   Open in browser: http://localhost:8080
 echo.
-echo 注意: 不能直接双击 index.html 打开
-echo       必须通过HTTP服务器访问才能加载WASM引擎
-echo.
-echo 按Ctrl+C停止服务器
+echo   Press Ctrl+C to stop
 echo ========================================
 echo.
 python -m http.server 8080

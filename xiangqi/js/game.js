@@ -10,14 +10,14 @@ export class Game {
 
     async initEngine() {
         try {
-            const wasmModule = await import('./pkg/xiangqi_core.js');
-            const wasmPath = new URL('./pkg/xiangqi_core_bg.wasm', window.location.href);
+            const wasmModule = await import('../pkg/xiangqi_core.js');
+            const wasmPath = new URL('../pkg/xiangqi_core_bg.wasm', window.location.href);
             await wasmModule.default(wasmPath);
             this.wasmModule = wasmModule;
             this.engine = new wasmModule.XiangQiEngine();
         } catch (e) {
             console.error('WASM init error:', e);
-            throw new Error('引擎加载失败，请通过HTTP服务器访问（不能直接双击打开HTML文件）。错误: ' + e.message);
+            throw new Error('Engine load failed. Please use HTTP server. Error: ' + e.message);
         }
     }
 

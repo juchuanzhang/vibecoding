@@ -1,0 +1,4 @@
+xiangqi-core/target/
+node_modules/
+*.swp
+*.swo

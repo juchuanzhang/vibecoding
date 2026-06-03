@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>象棋分析器 - XiangQi Analyzer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>象棋分析器 XiangQi Analyzer</h1>
+    </header>
+
+    <div class="main-container">
+        <div class="board-section">
+            <div id="sideInfo" class="side-info red-side">红方走棋</div>
+            <div id="checkWarning" class="check-warning" style="display:none">将军！</div>
+            <div id="gameOverMsg" class="game-over-msg" style="display:none"></div>
+            <canvas id="chessBoard"></canvas>
+            <div id="loadingMsg" style="color:#2ecc71; text-align:center; padding:10px;">正在加载...</div>
+            <div id="errorMsg" style="color:#e94560; text-align:center; padding:5px; display:none;"></div>
+            <div id="analyzingIndicator" class="analyzing-indicator" style="display:none">分析中...</div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel">
+                <h3>局势评分</h3>
+                <div class="score-display">
+                    <div id="scoreValue" class="score-value score-even">0</div>
+                    <div class="score-bar">
+                        <div id="scoreBarFill" class="score-bar-fill" style="width:50%; background:#888;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>最优走法推荐</h3>
+                <ul id="candidatesList" class="candidate-list">
+                    <li class="candidate-item">点击"分析"获取推荐</li>
+                </ul>
+                <div id="pathDisplay" class="path-display">--</div>
+                <div id="statusInfo" class="status-info">--</div>
+            </div>
+
+            <div class="panel">
+                <h3>走棋历史</h3>
+                <div id="historyList" class="history-list"></div>
+            </div>
+
+            <div class="panel">
+                <h3>FEN 导入/导出</h3>
+                <textarea id="fenInput" rows="2" style="width:100%; background:#0f3460; color:#e0e0e0; border:1px solid #1a4a8a; border-radius:4px; padding:5px; font-size:12px; resize:none;"></textarea>
+                <div style="margin-top:5px; display:flex; gap:5px;">
+                    <button id="btnImport" class="btn btn-primary" style="flex:1">导入</button>
+                    <button id="btnExport" class="btn btn-primary" style="flex:1">导出</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="btnNewGame" class="btn btn-danger">新局</button>
+        <button id="btnUndo" class="btn btn-primary">悔棋</button>
+        <button id="btnAnalyze" class="btn btn-success">分析</button>
+        <select id="depthSelect" class="depth-select">
+            <option value="1">1层</option>
+            <option value="2">2层</option>
+            <option value="3">3层</option>
+            <option value="4" selected>4层</option>
+            <option value="5">5层</option>
+            <option value="6">6层</option>
+        </select>
+    </div>
+
+    <script src="js/board.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

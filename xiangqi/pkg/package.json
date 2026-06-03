@@ -1,0 +1,15 @@
+{
+  "name": "xiangqi-core",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "xiangqi_core_bg.wasm",
+    "xiangqi_core.js",
+    "xiangqi_core.d.ts"
+  ],
+  "main": "xiangqi_core.js",
+  "types": "xiangqi_core.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

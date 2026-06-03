@@ -1,3 +1,6 @@
+import { BoardRenderer } from './board.js';
+import { Game } from './game.js';
+
 class MainController {
     constructor() {
         this.game = new Game();
@@ -18,7 +21,8 @@ class MainController {
             this.updateView();
             hideLoading();
         } catch (e) {
-            showError('引擎加载失败: ' + e.message);
+            showError(e.message);
+            hideLoading();
         }
     }
 

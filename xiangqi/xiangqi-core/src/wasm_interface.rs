@@ -426,3 +426,270 @@ impl XiangQiEngine {
         format!("{}{}{}{}", name, from_col, action, dest)
     }
 }
+
+#[cfg(test)]
+mod opening_tests {
+    use super::*;
+
+    struct MoveStep {
+        from: (u8, u8),
+        to: (u8, u8),
+        expected_desc: &'static str,
+    }
+
+    fn play_opening(steps: &[MoveStep]) -> XiangQiEngine {
+        let mut engine = XiangQiEngine::new();
+        for step in steps {
+            let desc = engine.describe_move(step.from.0, step.from.1, step.to.0, step.to.1);
+            assert_eq!(desc, step.expected_desc,
+                "Move ({},{})→({},{}) description: expected '{}', got '{}'",
+                step.from.0, step.from.1, step.to.0, step.to.1,
+                step.expected_desc, desc);
+            let ok = engine.make_move(step.from.0, step.from.1, step.to.0, step.to.1);
+            assert!(ok, "Move ({},{})→({},{}) should be legal",
+                step.from.0, step.from.1, step.to.0, step.to.1);
+        }
+        engine
+    }
+
+    #[test]
+    fn test_central_cannon_vs_screen_horse() {
+        let steps = [
+            MoveStep { from: (7, 7), to: (4, 7), expected_desc: "炮二平五" },
+            MoveStep { from: (7, 0), to: (6, 2), expected_desc: "马8进7" },
+            MoveStep { from: (7, 9), to: (6, 7), expected_desc: "马二进三" },
+            MoveStep { from: (8, 0), to: (7, 0), expected_desc: "车9平8" },
+            MoveStep { from: (8, 9), to: (7, 9), expected_desc: "车一平二" },
+            MoveStep { from: (1, 0), to: (2, 2), expected_desc: "马2进3" },
+        ];
+        let engine = play_opening(&steps);
+        let fen = engine.to_fen();
+        assert!(fen.starts_with("r1bakabr1"), "Black back row: {}", fen);
+        assert!(fen.contains("RNBAKABR1"), "Red back row: {}", fen);
+        assert!(!engine.is_in_check(), "No check after opening");
+        assert_eq!(engine.is_game_over(), "playing");
+    }
+
+    #[test]
+    fn test_same_side_cannon_opening() {
+        let steps = [
+            MoveStep { from: (7, 7), to: (4, 7), expected_desc: "炮二平五" },
+            MoveStep { from: (7, 2), to: (4, 2), expected_desc: "炮8平5" },
+        ];
+        let engine = play_opening(&steps);
+        let fen = engine.to_fen();
+        assert!(fen.contains("1c2c4"), "Black cannon row: {}", fen);
+        assert!(fen.contains("1C2C4"), "Red cannon row: {}", fen);
+    }
+
+    #[test]
+    fn test_pawn_advance_opening() {
+        let steps = [
+            MoveStep { from: (2, 6), to: (2, 5), expected_desc: "兵七进一" },
+        ];
+        let engine = play_opening(&steps);
+        let fen = engine.to_fen();
+        assert!(fen.contains("2P6"), "Pawn advanced to row 5: {}", fen);
+        assert!(fen.contains("P3P1P1P"), "Row 6 has gap: {}", fen);
+    }
+
+    #[test]
+    fn test_knight_retreat() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(7, 7, 4, 7);
+        engine.make_move(7, 0, 6, 2);
+        engine.make_move(7, 9, 6, 7);
+        let desc = engine.describe_move(6, 2, 7, 0);
+        assert_eq!(desc, "马7退8", "Black knight retreat: got '{}'", desc);
+        let ok = engine.make_move(6, 2, 7, 0);
+        assert!(ok, "Knight retreat should be legal");
+    }
+
+    #[test]
+    fn test_cannon_horizontal_back() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(7, 7, 4, 7);
+        engine.make_move(7, 0, 6, 2);
+        let desc = engine.describe_move(4, 7, 7, 7);
+        assert_eq!(desc, "炮五平二", "Cannon horizontal back: got '{}'", desc);
+        let ok = engine.make_move(4, 7, 7, 7);
+        assert!(ok, "Cannon horizontal should be legal");
+    }
+
+    #[test]
+    fn test_cannon_vertical_retreat() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(7, 7, 4, 7);
+        engine.make_move(7, 0, 6, 2);
+        engine.make_move(1, 7, 4, 7);
+        let desc = engine.describe_move(4, 7, 4, 8);
+        assert_eq!(desc, "炮五退一", "Red cannon retreat 1 step: got '{}'", desc);
+    }
+
+#[test]
+    fn test_advisor_move() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(2, 6, 2, 5);
+        engine.make_move(2, 3, 2, 4);
+        let desc = engine.describe_move(3, 9, 4, 8);
+        assert_eq!(desc, "仕六进五", "Red advisor move: got '{}'", desc);
+        let ok = engine.make_move(3, 9, 4, 8);
+        assert!(ok, "Advisor move should be legal");
+    }
+
+    #[test]
+    fn test_bishop_move() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(4, 6, 4, 5);
+        engine.make_move(4, 3, 4, 4);
+        engine.make_move(3, 9, 4, 8);
+        engine.make_move(0, 3, 0, 4);
+        let desc = engine.describe_move(6, 9, 4, 7);
+        assert_eq!(desc, "相三进五", "Red bishop move: got '{}'", desc);
+        let ok = engine.make_move(6, 9, 4, 7);
+        assert!(ok, "Bishop move should be legal");
+    }
+
+    #[test]
+    fn test_king_move() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(4, 6, 4, 5);
+        engine.make_move(4, 3, 4, 4);
+        let desc = engine.describe_move(4, 9, 4, 8);
+        assert_eq!(desc, "帅五进一", "Red king move: got '{}'", desc);
+        let ok = engine.make_move(4, 9, 4, 8);
+        assert!(ok, "King move should be legal");
+    }
+
+    #[test]
+    fn test_red_pawn_forward_steps_count() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(4, 6, 4, 5);
+        engine.make_move(7, 2, 4, 2);
+        let desc = engine.describe_move(4, 5, 4, 4);
+        assert_eq!(desc, "兵五进一", "Red pawn 1 step forward: got '{}'", desc);
+        engine.make_move(4, 5, 4, 4);
+        engine.make_move(7, 0, 6, 2);
+        let desc2 = engine.describe_move(4, 4, 4, 3);
+        assert_eq!(desc2, "兵五进一", "Red pawn another step: got '{}'", desc2);
+    }
+
+    #[test]
+    fn test_black_pawn_forward() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(2, 6, 2, 5);
+        let desc = engine.describe_move(2, 3, 2, 4);
+        assert_eq!(desc, "卒3进1", "Black pawn forward: got '{}'", desc);
+    }
+
+    #[test]
+    fn test_cannon_forward() {
+        let engine = XiangQiEngine::new();
+        let desc = engine.describe_move(1, 7, 1, 6);
+        assert_eq!(desc, "炮八进一", "Red cannon 1 step forward: got '{}'", desc);
+    }
+
+    #[test]
+    fn test_rook_forward() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(7, 7, 4, 7);
+        engine.make_move(7, 0, 6, 2);
+        engine.make_move(7, 9, 6, 7);
+        engine.make_move(8, 0, 7, 0);
+        engine.make_move(8, 9, 7, 9);
+        engine.make_move(1, 0, 2, 2);
+        let desc = engine.describe_move(7, 9, 7, 7);
+        assert_eq!(desc, "车二进二", "Red rook forward: got '{}'", desc);
+    }
+
+    #[test]
+    fn test_rook_retreat() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(7, 7, 4, 7);
+        engine.make_move(7, 0, 6, 2);
+        engine.make_move(7, 9, 6, 7);
+        engine.make_move(8, 0, 7, 0);
+        engine.make_move(8, 9, 7, 9);
+        engine.make_move(1, 0, 2, 2);
+        engine.make_move(7, 9, 7, 7);
+        engine.make_move(7, 0, 7, 2);
+        let desc = engine.describe_move(7, 7, 7, 9);
+        assert_eq!(desc, "车二退二", "Red rook retreat: got '{}'", desc);
+    }
+
+    #[test]
+    fn test_opening_sequence_undo() {
+        let mut engine = XiangQiEngine::new();
+        let initial_fen = engine.to_fen();
+
+        engine.make_move(7, 7, 4, 7);
+        engine.make_move(7, 0, 6, 2);
+        engine.make_move(7, 9, 6, 7);
+
+        engine.undo_move();
+        engine.undo_move();
+        engine.undo_move();
+
+        assert_eq!(engine.to_fen(), initial_fen, "Undo should restore initial position");
+    }
+
+#[test]
+    fn test_flying_general_rule() {
+        let fen = "4k4/4R4/9/9/9/9/9/9/9/4K4 w - 0 1";
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        let ok = engine.make_move(4, 1, 0, 1);
+        assert!(!ok, "Rook can't leave column - would create flying general");
+        let ok2 = engine.make_move(4, 1, 4, 5);
+        assert!(ok2, "Rook can stay on column between kings");
+    }
+
+    #[test]
+    fn test_knight_blocked_by_own_piece() {
+        let mut engine = XiangQiEngine::new();
+        let ok = engine.make_move(1, 9, 3, 8);
+        assert!(!ok, "Knight blocked by Bishop at (2,9)");
+    }
+
+    #[test]
+    fn test_knight_can_move_when_not_blocked() {
+        let mut engine = XiangQiEngine::new();
+        let ok = engine.make_move(1, 9, 0, 7);
+        assert!(ok, "Knight at (1,9) can move to (0,7) - (1,8) is empty");
+    }
+
+    #[test]
+    fn test_black_advisor_move() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(4, 6, 4, 5);
+        let desc = engine.describe_move(3, 0, 4, 1);
+        assert_eq!(desc, "士4进5", "Black advisor move: got '{}'", desc);
+        let ok = engine.make_move(3, 0, 4, 1);
+        assert!(ok, "Black advisor should be able to move");
+    }
+
+    #[test]
+    fn test_black_king_move() {
+        let mut engine = XiangQiEngine::new();
+        engine.make_move(4, 6, 4, 5);
+        engine.make_move(4, 0, 4, 1);
+        let desc = engine.describe_move(4, 1, 4, 0);
+        assert_eq!(desc, "将5退1", "Black king retreat: got '{}'", desc);
+    }
+
+    #[test]
+    fn test_pawn_sideways_after_river() {
+        let fen = "3k5/9/9/9/4P4/9/9/9/9/4K4 w - 0 1";
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        let desc = engine.describe_move(4, 4, 3, 4);
+        assert_eq!(desc, "兵五平六", "Red pawn sideways after river: got '{}'", desc);
+        let ok = engine.make_move(4, 4, 3, 4);
+        assert!(ok, "Pawn can move sideways past river");
+    }
+
+    #[test]
+    fn test_pawn_cannot_sideways_before_river() {
+        let mut engine = XiangQiEngine::new();
+        let ok = engine.make_move(4, 6, 3, 6);
+        assert!(!ok, "Pawn can't move sideways before crossing river");
+    }
+}

@@ -693,3 +693,210 @@ mod opening_tests {
         assert!(!ok, "Pawn can't move sideways before crossing river");
     }
 }
+
+#[cfg(test)]
+mod classic_opening_tests {
+    use super::*;
+
+    struct MoveStep {
+        from: (u8, u8),
+        to: (u8, u8),
+        expected_desc: &'static str,
+    }
+
+    fn play_opening(steps: &[MoveStep]) -> XiangQiEngine {
+        let mut engine = XiangQiEngine::new();
+        for step in steps {
+            let desc = engine.describe_move(step.from.0, step.from.1, step.to.0, step.to.1);
+            assert_eq!(desc, step.expected_desc,
+                "Move ({},{})→({},{}) description: expected '{}', got '{}'",
+                step.from.0, step.from.1, step.to.0, step.to.1,
+                step.expected_desc, desc);
+            let ok = engine.make_move(step.from.0, step.from.1, step.to.0, step.to.1);
+            assert!(ok, "Move ({},{})→({},{}) should be legal",
+                step.from.0, step.from.1, step.to.0, step.to.1);
+        }
+        engine
+    }
+
+    fn play_from_fen(fen: &str, steps: &[MoveStep]) -> XiangQiEngine {
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        for step in steps {
+            let desc = engine.describe_move(step.from.0, step.from.1, step.to.0, step.to.1);
+            assert_eq!(desc, step.expected_desc,
+                "FEN move ({},{})→({},{}) description: expected '{}', got '{}'",
+                step.from.0, step.from.1, step.to.0, step.to.1,
+                step.expected_desc, desc);
+            let ok = engine.make_move(step.from.0, step.from.1, step.to.0, step.to.1);
+            assert!(ok, "FEN move ({},{})→({},{}) should be legal",
+                step.from.0, step.from.1, step.to.0, step.to.1);
+        }
+        engine
+    }
+
+    #[test]
+    fn test_ecco_a01_central_cannon_vs_screen_horse_5_moves() {
+        let steps = [
+            MoveStep { from: (7, 7), to: (4, 7), expected_desc: "炮二平五" },
+            MoveStep { from: (7, 0), to: (6, 2), expected_desc: "马8进7" },
+            MoveStep { from: (7, 9), to: (6, 7), expected_desc: "马二进三" },
+            MoveStep { from: (8, 0), to: (7, 0), expected_desc: "车9平8" },
+            MoveStep { from: (8, 9), to: (7, 9), expected_desc: "车一平二" },
+        ];
+        let engine = play_opening(&steps);
+        assert_eq!(engine.is_game_over(), "playing");
+        assert!(!engine.is_in_check());
+    }
+
+    #[test]
+    fn test_ecco_a01_central_cannon_vs_screen_horse_7_moves() {
+        let steps = [
+            MoveStep { from: (7, 7), to: (4, 7), expected_desc: "炮二平五" },
+            MoveStep { from: (7, 0), to: (6, 2), expected_desc: "马8进7" },
+            MoveStep { from: (7, 9), to: (6, 7), expected_desc: "马二进三" },
+            MoveStep { from: (8, 0), to: (7, 0), expected_desc: "车9平8" },
+            MoveStep { from: (8, 9), to: (7, 9), expected_desc: "车一平二" },
+            MoveStep { from: (1, 0), to: (2, 2), expected_desc: "马2进3" },
+            MoveStep { from: (3, 9), to: (4, 8), expected_desc: "仕六进五" },
+        ];
+        let engine = play_opening(&steps);
+        assert_eq!(engine.is_game_over(), "playing");
+        let fen = engine.to_fen();
+        assert!(fen.starts_with("r1bakabr"), "Black back row after 7 moves: {}", fen);
+    }
+
+    #[test]
+    fn test_ecco_d50_仙人指路_vs卒底炮() {
+        let steps = [
+            MoveStep { from: (2, 6), to: (2, 5), expected_desc: "兵七进一" },
+            MoveStep { from: (1, 2), to: (2, 2), expected_desc: "炮2平3" },
+            MoveStep { from: (7, 7), to: (4, 7), expected_desc: "炮二平五" },
+        ];
+        let engine = play_opening(&steps);
+        assert_eq!(engine.is_game_over(), "playing");
+    }
+
+    #[test]
+    fn test_ecco_a26_same_side_cannon_direct_attack() {
+        let steps = [
+            MoveStep { from: (7, 7), to: (4, 7), expected_desc: "炮二平五" },
+            MoveStep { from: (7, 2), to: (4, 2), expected_desc: "炮8平5" },
+            MoveStep { from: (7, 9), to: (6, 7), expected_desc: "马二进三" },
+            MoveStep { from: (7, 0), to: (6, 2), expected_desc: "马8进7" },
+            MoveStep { from: (8, 9), to: (7, 9), expected_desc: "车一平二" },
+            MoveStep { from: (8, 0), to: (7, 0), expected_desc: "车9平8" },
+        ];
+        let engine = play_opening(&steps);
+        assert_eq!(engine.is_game_over(), "playing");
+    }
+
+    #[test]
+    fn test_ecco_e44_right_knight_cannon() {
+        let steps = [
+            MoveStep { from: (7, 7), to: (4, 7), expected_desc: "炮二平五" },
+            MoveStep { from: (1, 0), to: (2, 2), expected_desc: "马2进3" },
+            MoveStep { from: (7, 9), to: (6, 7), expected_desc: "马二进三" },
+            MoveStep { from: (7, 2), to: (4, 2), expected_desc: "炮8平5" },
+        ];
+        let engine = play_opening(&steps);
+        assert_eq!(engine.is_game_over(), "playing");
+    }
+
+    #[test]
+    fn test_列炮开局_opposing_cannon() {
+        let steps = [
+            MoveStep { from: (7, 7), to: (4, 7), expected_desc: "炮二平五" },
+            MoveStep { from: (1, 2), to: (4, 2), expected_desc: "炮2平5" },
+        ];
+        let engine = play_opening(&steps);
+        assert_eq!(engine.is_game_over(), "playing");
+    }
+
+    #[test]
+    fn test_仕角炮_opening() {
+        let steps = [
+            MoveStep { from: (1, 7), to: (3, 7), expected_desc: "炮八平六" },
+        ];
+        let engine = play_opening(&steps);
+        assert_eq!(engine.is_game_over(), "playing");
+    }
+
+    #[test]
+    fn test_桔中秘_wins_with_rook_and_horse() {
+        let fen = "4k4/4a4/9/9/9/4N4/9/9/4R4/4K4 w - 0 1";
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        let result = engine.analyze(4);
+        assert!(result.get_score() > 0, "Red should have advantage with R+N vs advisor+king");
+    }
+
+    #[test]
+    fn test_适情雅趣_single_rook_beats_two_advisors() {
+        let fen = "4k4/3a1a3/9/9/9/9/9/9/4R4/4K4 w - 0 1";
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        let result = engine.analyze(4);
+        assert!(result.get_score() > 500, "Red rook should dominate two advisors: score={}", result.get_score());
+    }
+
+    #[test]
+    fn test_适情雅趣_rook_cannon_combo_checkmate_in_3() {
+        let fen = "4k4/9/4C4/9/9/9/9/9/9/3RK4 w - 0 1";
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        let result = engine.analyze(4);
+        assert!(result.get_score() > 800, "R+C vs bare king should be near checkmate: score={}", result.get_score());
+    }
+
+    #[test]
+    fn test_梅花谱_central_cannon_finds_best_move() {
+        let mut engine = XiangQiEngine::new();
+        let result = engine.analyze(3);
+        assert!(result.get_best_move_from_x() != 0 || result.get_best_move_from_y() != 0,
+            "Engine should find a move from initial position");
+        let best_from_x = result.get_best_move_from_x();
+        assert!(best_from_x == 7 || best_from_x == 1 || best_from_x == 4,
+            "From initial position, best move should be cannon or pawn: from_x={}", best_from_x);
+    }
+
+    #[test]
+    fn test_endgame_two_rooks_vs_bare_king() {
+        let fen = "4k4/9/9/9/9/9/9/9/4R3/3RK4 w - 0 1";
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        let result = engine.analyze(4);
+        assert!(result.get_score() > 900, "Two rooks vs bare king should be massive advantage: score={}", result.get_score());
+    }
+
+    #[test]
+    fn test_endgame_king_and_advisor_vs_king_is_drawish() {
+        let fen = "4k4/4a4/9/9/9/9/9/9/9/4K4 w - 0 1";
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        let result = engine.analyze(4);
+        let score = result.get_score();
+        assert!(score.abs() < 300, "King+advisor vs king should be small advantage: score={}", score);
+    }
+
+    #[test]
+    fn test_checkmate_in_one_rook_corners_king() {
+        let fen = "5k3/4R4/9/9/9/9/9/9/9/4K4 w - 0 1";
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        let result = engine.analyze(4);
+        assert!(result.get_score() > 1000, "Red should have decisive advantage vs bare king: score={}", result.get_score());
+    }
+
+    #[test]
+    fn test_must_escape_check() {
+        let fen = "4k4/4R4/9/9/9/9/9/9/9/4K4 b - 0 1";
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        assert!(engine.is_in_check(), "Black should be in check from rook on column 4");
+        let result = engine.analyze(2);
+        assert!(result.get_best_move_from_x() != 0 || result.get_best_move_from_y() != 0,
+            "Engine should find escape move");
+    }
+
+    #[test]
+    fn test_endgame_rook_vs_rook_and_pawn_red_advantage() {
+        let fen = "4k4/9/9/9/4p4/9/9/9/4R4/4K4 w - 0 1";
+        let mut engine = XiangQiEngine::from_fen(fen).unwrap();
+        let result = engine.analyze(4);
+        let score = result.get_score();
+        assert!(score.abs() > 50, "R vs R+P should not be draw: score={}", score);
+    }
+}

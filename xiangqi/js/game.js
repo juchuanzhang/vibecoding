@@ -1,352 +1,309 @@
 export class Game {
     constructor() {
-        this.engine = null;
+        this.ws = null;
+        this.boardState = null;
         this.selectedPos = null;
         this.moveHistory = [];
         this.analysisDepth = 4;
         this.isAnalyzing = false;
         this.currentAnalysis = null;
-        this.wasmModule = null;
+        this.connected = false;
+        this.onUpdate = null;
+        this.onAnalysisProgress = null;
+        this.onAnalysisComplete = null;
+        this.onError = null;
     }
 
-    async initEngine() {
-        try {
-            const wasmModule = await import('../pkg/xiangqi_core.js');
-            await wasmModule.default();
-            this.wasmModule = wasmModule;
-            this.engine = new wasmModule.XiangQiEngine();
-        } catch (e) {
-            console.error('WASM init error:', e);
-            throw new Error('Engine load failed. Please use HTTP server. Error: ' + e.message);
+    async connect() {
+        return new Promise((resolve, reject) => {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const wsUrl = protocol + '//' + host + '/ws';
+
+            this.ws = new WebSocket(wsUrl);
+
+            this.ws.onopen = () => {
+                this.connected = true;
+                resolve();
+            };
+
+            this.ws.onerror = (e) => {
+                reject(new Error('WebSocket connection failed'));
+            };
+
+            this.ws.onclose = () => {
+                this.connected = false;
+            };
+
+            this.ws.onmessage = (event) => {
+                this.handleMessage(JSON.parse(event.data));
+            };
+        });
+    }
+
+    handleMessage(msg) {
+        switch (msg.type) {
+            case 'board_state':
+                this.boardState = {
+                    pieces: msg.pieces,
+                    sideToMove: msg.side,
+                    isInCheck: msg.in_check,
+                    gameOver: msg.game_status,
+                    lastMove: msg.last_move ? {
+                        from: { x: msg.last_move.from[0], y: msg.last_move.from[1] },
+                        to: { x: msg.last_move.to[0], y: msg.last_move.to[1] },
+                    } : null,
+                    fen: msg.fen,
+                };
+                this.moveHistory = msg.move_history || [];
+                if (this.onUpdate) this.onUpdate();
+                break;
+
+            case 'move_result':
+                this.moveHistory = msg.move_history || [];
+                this.currentAnalysis = null;
+                break;
+
+            case 'undo_result':
+                this.moveHistory = msg.move_history || [];
+                this.currentAnalysis = null;
+                break;
+
+            case 'new_game_result':
+                this.moveHistory = [];
+                this.currentAnalysis = null;
+                break;
+
+            case 'import_result':
+                this.moveHistory = [];
+                this.currentAnalysis = null;
+                break;
+
+            case 'analysis_progress':
+                if (msg.best_move) {
+                    this.currentAnalysis = {
+                        bestMove: {
+                            from: { x: msg.best_move.from[0], y: msg.best_move.from[1] },
+                            to: { x: msg.best_move.to[0], y: msg.best_move.to[1] }
+                        },
+                        score: msg.score,
+                        candidates: [],
+                        searchPath: [],
+                        nodesSearched: 0,
+                        depth: msg.depth,
+                        description: msg.best_move_description,
+                    };
+                }
+                if (this.onAnalysisProgress) this.onAnalysisProgress(msg);
+                break;
+
+            case 'analysis_complete':
+                this.isAnalyzing = false;
+                this.currentAnalysis = {
+                    bestMove: msg.best_move ? {
+                        from: { x: msg.best_move.from[0], y: msg.best_move.from[1] },
+                        to: { x: msg.best_move.to[0], y: msg.best_move.to[1] }
+                    } : null,
+                    score: msg.score,
+                    candidates: (msg.candidates || []).map(c => ({
+                        from: { x: c.from[0], y: c.from[1] },
+                        to: { x: c.to[0], y: c.to[1] },
+                        score: c.score,
+                        description: c.description
+                    })),
+                    searchPath: (msg.search_path || []).map(m => ({
+                        from: { x: m.from[0], y: m.from[1] },
+                        to: { x: m.to[0], y: m.to[1] }
+                    })),
+                    nodesSearched: msg.nodes,
+                    depth: msg.depth,
+                    description: msg.best_move ? msg.best_move.description : '',
+                };
+                if (this.onAnalysisComplete) this.onAnalysisComplete(msg);
+                break;
+
+            case 'error':
+                this.isAnalyzing = false;
+                if (this.onError) this.onError(msg.message);
+                break;
         }
     }
 
-    reset() {
-        this.engine = new this.wasmModule.XiangQiEngine();
-        this.selectedPos = null;
-        this.moveHistory = [];
-        this.currentAnalysis = null;
+    send(data) {
+        if (this.ws && this.connected) {
+            this.ws.send(JSON.stringify(data));
+        }
     }
 
     makeMove(from, to) {
-        if (!this.engine) return false;
-        const desc = this.engine.describe_move(from.x, from.y, to.x, to.y);
-        const result = this.engine.make_move(from.x, from.y, to.x, to.y);
-        if (result) {
-            this.moveHistory.push({ from, to, description: desc });
-            this.selectedPos = null;
-            this.currentAnalysis = null;
-        }
-        return result;
+        this.send({ type: 'move', from: [from.x, from.y], to: [to.x, to.y] });
+        this.selectedPos = null;
+        return true;
     }
 
     undoMove() {
-        if (!this.engine || this.moveHistory.length === 0) return false;
-        const result = this.engine.undo_move();
-        if (result) {
-            this.moveHistory.pop();
-            this.selectedPos = null;
-            this.currentAnalysis = null;
-        }
-        return result;
-    }
-
-    getLegalTargets(pos) {
-        if (!this.engine) return [];
-        const targets = this.engine.get_legal_moves_at(pos.x, pos.y);
-        const result = [];
-        for (let i = 0; i < targets.length; i++) {
-            result.push({ x: targets[i].get_x(), y: targets[i].get_y() });
-            targets[i].free();
-        }
-        return result;
-    }
-
-    getBoardState() {
-        if (!this.engine) return null;
-        const state = this.engine.get_board_state();
-        const piecesJson = state.get_pieces_json();
-        const pieces = JSON.parse(piecesJson);
-
-        const sideToMove = state.get_side_to_move();
-        const isInCheck = state.get_is_in_check();
-        const gameOver = state.get_game_over();
-
-        let lastMove = null;
-        const lastMoveJson = state.get_last_move_json();
-        if (lastMoveJson && lastMoveJson !== 'null') {
-            const lm = JSON.parse(lastMoveJson);
-            lastMove = { from: { x: lm.from_x, y: lm.from_y }, to: { x: lm.to_x, y: lm.to_y } };
-        }
-
-        state.free();
-        return {
-            pieces,
-            sideToMove,
-            isInCheck,
-            gameOver,
-            lastMove
-        };
-    }
-
-    getScore() {
-        if (!this.engine) return 0;
-        return this.engine.evaluate();
-    }
-
-    analyze(depth) {
-        if (!this.engine || this.isAnalyzing) return null;
-        this.isAnalyzing = true;
-        try {
-            const result = this.engine.analyze(depth);
-
-            let bestMove = null;
-            if (result.get_best_move_from_x() !== 0 || result.get_best_move_from_y() !== 0) {
-                bestMove = {
-                    from: { x: result.get_best_move_from_x(), y: result.get_best_move_from_y() },
-                    to: { x: result.get_best_move_to_x(), y: result.get_best_move_to_y() }
-                };
-            }
-
-            const candidates = [];
-            const cands = result.get_candidates();
-            for (let i = 0; i < cands.length; i++) {
-                const cDesc = this.engine.describe_move(cands[i].get_from_x(), cands[i].get_from_y(), cands[i].get_to_x(), cands[i].get_to_y());
-                candidates.push({
-                    from: { x: cands[i].get_from_x(), y: cands[i].get_from_y() },
-                    to: { x: cands[i].get_to_x(), y: cands[i].get_to_y() },
-                    score: cands[i].get_score(),
-                    description: cDesc
-                });
-                cands[i].free();
-            }
-
-            const spFromX = result.get_search_path_from_x();
-            const spFromY = result.get_search_path_from_y();
-            const spToX = result.get_search_path_to_x();
-            const spToY = result.get_search_path_to_y();
-            const searchPath = [];
-            for (let i = 0; i < spFromX.length; i++) {
-                searchPath.push({
-                    from: { x: spFromX[i], y: spFromY[i] },
-                    to: { x: spToX[i], y: spToY[i] }
-                });
-            }
-
-            this.currentAnalysis = {
-                bestMove,
-                score: result.get_score(),
-                candidates,
-                searchPath,
-                nodesSearched: result.get_nodes_searched()
-            };
-
-            result.free();
-            return this.currentAnalysis;
-        } finally {
-            this.isAnalyzing = false;
-        }
-    }
-
-    importFEN(fen) {
-        if (!this.engine) return false;
-        const result = this.engine.import_fen(fen);
-        if (result) {
-            this.moveHistory = [];
-            this.selectedPos = null;
-            this.currentAnalysis = null;
-        }
-        return result;
-    }
-
-    exportFEN() {
-        if (!this.engine) return '';
-        return this.engine.to_fen();
-    }
-
-    isGameOver() {
-        if (!this.engine) return 'playing';
-        return this.engine.is_game_over();
-    }
-
-    isInCheck() {
-        if (!this.engine) return false;
-        return this.engine.is_in_check();
-    }
-
-    describeMove(fromX, fromY, toX, toY) {
-        if (!this.engine) return `(${fromX},${fromY})→(${toX},${toY})`;
-        return this.engine.describe_move(fromX, fromY, toX, toY);
-    }
-}
-
-    async initEngine() {
-        try {
-            const wasmModule = await import('../pkg/xiangqi_core.js');
-            await wasmModule.default();
-            this.wasmModule = wasmModule;
-            this.engine = new wasmModule.XiangQiEngine();
-        } catch (e) {
-            console.error('WASM init error:', e);
-            throw new Error('Engine load failed. Please use HTTP server. Error: ' + e.message);
-        }
-    }
-
-    reset() {
-        this.engine = new this.wasmModule.XiangQiEngine();
+        this.send({ type: 'undo' });
         this.selectedPos = null;
-        this.moveHistory = [];
+        return true;
+    }
+
+    newGame() {
+        this.send({ type: 'new_game' });
+        this.selectedPos = null;
         this.currentAnalysis = null;
     }
 
-    makeMove(from, to) {
-        if (!this.engine) return false;
-        const desc = this.engine.describe_move(from.x, from.y, to.x, to.y);
-        const result = this.engine.make_move(from.x, from.y, to.x, to.y);
-        if (result) {
-            this.moveHistory.push({ from, to, description: desc });
-            this.selectedPos = null;
-            this.currentAnalysis = null;
-        }
-        return result;
-    }
-
-    undoMove() {
-        if (!this.engine || this.moveHistory.length === 0) return false;
-        const result = this.engine.undo_move();
-        if (result) {
-            this.moveHistory.pop();
-            this.selectedPos = null;
-            this.currentAnalysis = null;
-        }
-        return result;
-    }
-
-    getLegalTargets(pos) {
-        if (!this.engine) return [];
-        const targets = this.engine.get_legal_moves_at(pos.x, pos.y);
-        const result = [];
-        for (let i = 0; i < targets.length; i++) {
-            result.push({ x: targets[i].get_x(), y: targets[i].get_y() });
-            targets[i].free();
-        }
-        return result;
-    }
-
-    getBoardState() {
-        if (!this.engine) return null;
-        const state = this.engine.get_board_state();
-        const piecesJson = state.get_pieces_json();
-        const pieces = JSON.parse(piecesJson);
-
-        const sideToMove = state.get_side_to_move();
-        const isInCheck = state.get_is_in_check();
-        const gameOver = state.get_game_over();
-
-        let lastMove = null;
-        const lastMoveJson = state.get_last_move_json();
-        if (lastMoveJson && lastMoveJson !== 'null') {
-            const lm = JSON.parse(lastMoveJson);
-            lastMove = { from: { x: lm.from_x, y: lm.from_y }, to: { x: lm.to_x, y: lm.to_y } };
-        }
-
-        state.free();
-        return {
-            pieces,
-            sideToMove,
-            isInCheck,
-            gameOver,
-            lastMove
-        };
-    }
-
-    getScore() {
-        if (!this.engine) return 0;
-        return this.engine.evaluate();
-    }
-
-    analyze(depth) {
-        if (!this.engine || this.isAnalyzing) return null;
+    requestAnalysis(depth) {
+        if (this.isAnalyzing) return;
         this.isAnalyzing = true;
-        try {
-            const result = this.engine.analyze(depth);
-
-            let bestMove = null;
-            if (result.get_best_move_from_x() !== 0 || result.get_best_move_from_y() !== 0) {
-                bestMove = {
-                    from: { x: result.get_best_move_from_x(), y: result.get_best_move_from_y() },
-                    to: { x: result.get_best_move_to_x(), y: result.get_best_move_to_y() }
-                };
-            }
-
-            const candidates = [];
-            const cands = result.get_candidates();
-            for (let i = 0; i < cands.length; i++) {
-                const cDesc = this.engine.describe_move(cands[i].get_from_x(), cands[i].get_from_y(), cands[i].get_to_x(), cands[i].get_to_y());
-                candidates.push({
-                    from: { x: cands[i].get_from_x(), y: cands[i].get_from_y() },
-                    to: { x: cands[i].get_to_x(), y: cands[i].get_to_y() },
-                    score: cands[i].get_score(),
-                    description: cDesc
-                });
-                cands[i].free();
-            }
-
-            const spFromX = result.get_search_path_from_x();
-            const spFromY = result.get_search_path_from_y();
-            const spToX = result.get_search_path_to_x();
-            const spToY = result.get_search_path_to_y();
-            const searchPath = [];
-            for (let i = 0; i < spFromX.length; i++) {
-                searchPath.push({
-                    from: { x: spFromX[i], y: spFromY[i] },
-                    to: { x: spToX[i], y: spToY[i] }
-                });
-            }
-
-            this.currentAnalysis = {
-                bestMove,
-                score: result.get_score(),
-                candidates,
-                searchPath,
-                nodesSearched: result.get_nodes_searched()
-            };
-
-            result.free();
-            return this.currentAnalysis;
-        } finally {
-            this.isAnalyzing = false;
-        }
+        this.send({ type: 'analyze', depth: depth });
     }
 
     importFEN(fen) {
-        if (!this.engine) return false;
-        const result = this.engine.import_fen(fen);
-        if (result) {
-            this.moveHistory = [];
-            this.selectedPos = null;
-            this.currentAnalysis = null;
-        }
-        return result;
+        this.send({ type: 'import_fen', fen: fen });
+        this.selectedPos = null;
+        this.currentAnalysis = null;
+        return true;
     }
 
     exportFEN() {
-        if (!this.engine) return '';
-        return this.engine.to_fen();
+        if (this.boardState) return this.boardState.fen;
+        return '';
+    }
+
+    getBoardState() {
+        return this.boardState;
     }
 
     isGameOver() {
-        if (!this.engine) return 'playing';
-        return this.engine.is_game_over();
+        if (!this.boardState) return 'playing';
+        return this.boardState.gameOver;
     }
 
     isInCheck() {
-        if (!this.engine) return false;
-        return this.engine.is_in_check();
+        if (!this.boardState) return false;
+        return this.boardState.isInCheck;
+    }
+
+    getScore() {
+        if (this.currentAnalysis) return this.currentAnalysis.score;
+        return 0;
     }
 
     describeMove(fromX, fromY, toX, toY) {
-        if (!this.engine) return `(${fromX},${fromY})→(${toX},${toY})`;
-        return this.engine.describe_move(fromX, fromY, toX, toY);
+        if (this.currentAnalysis && this.currentAnalysis.description) {
+            return this.currentAnalysis.description;
+        }
+        return `(${fromX},${fromY})->(${toX},${toY})`;
+    }
+
+    getLegalTargets(pos) {
+        if (!this.boardState) return [];
+        const pieces = this.boardState.pieces;
+        const side = this.boardState.sideToMove;
+
+        const piece = pieces.find(p => p.x === pos.x && p.y === pos.y && p.side === side);
+        if (!piece) return [];
+
+        return this._generateRawMoves(pieces, piece, pos, side);
+    }
+
+    _generateRawMoves(pieces, piece, from, side) {
+        const pt = piece.type;
+        const moves = [];
+
+        if (pt === 'King') {
+            for (const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+                const nx = from.x + dx, ny = from.y + dy;
+                if (nx >= 0 && nx < 9 && ny >= 0 && ny < 10) {
+                    if (side === 'red' ? (nx >= 3 && nx <= 5 && ny >= 7 && ny <= 9) : (nx >= 3 && nx <= 5 && ny >= 0 && ny <= 2)) {
+                        const target = pieces.find(p => p.x === nx && p.y === ny);
+                        if (!target || target.side !== side) moves.push({ x: nx, y: ny });
+                    }
+                }
+            }
+        } else if (pt === 'Advisor') {
+            for (const [dx, dy] of [[1,1],[1,-1],[-1,1],[-1,-1]]) {
+                const nx = from.x + dx, ny = from.y + dy;
+                if (nx >= 0 && nx < 9 && ny >= 0 && ny < 10) {
+                    if (side === 'red' ? (nx >= 3 && nx <= 5 && ny >= 7 && ny <= 9) : (nx >= 3 && nx <= 5 && ny >= 0 && ny <= 2)) {
+                        const target = pieces.find(p => p.x === nx && p.y === ny);
+                        if (!target || target.side !== side) moves.push({ x: nx, y: ny });
+                    }
+                }
+            }
+        } else if (pt === 'Bishop') {
+            for (const [dx, dy] of [[2,2],[2,-2],[-2,2],[-2,-2]]) {
+                const nx = from.x + dx, ny = from.y + dy;
+                if (nx >= 0 && nx < 9 && ny >= 0 && ny < 10) {
+                    const ownTerritory = side === 'red' ? ny >= 5 : ny <= 4;
+                    if (!ownTerritory) continue;
+                    const ex = from.x + dx/2, ey = from.y + dy/2;
+                    const eye = pieces.find(p => p.x === ex && p.y === ey);
+                    if (eye) continue;
+                    const target = pieces.find(p => p.x === nx && p.y === ny);
+                    if (!target || target.side !== side) moves.push({ x: nx, y: ny });
+                }
+            }
+        } else if (pt === 'Knight') {
+            for (const [dx,dy,bdx,bdy] of [[2,1,1,0],[2,-1,1,0],[-2,1,-1,0],[-2,-1,-1,0],[1,2,0,1],[1,-2,0,-1],[-1,2,0,1],[-1,-2,0,-1]]) {
+                const nx = from.x + dx, ny = from.y + dy;
+                if (nx >= 0 && nx < 9 && ny >= 0 && ny < 10) {
+                    const bx = from.x + bdx, by = from.y + bdy;
+                    const block = pieces.find(p => p.x === bx && p.y === by);
+                    if (block) continue;
+                    const target = pieces.find(p => p.x === nx && p.y === ny);
+                    if (!target || target.side !== side) moves.push({ x: nx, y: ny });
+                }
+            }
+        } else if (pt === 'Rook') {
+            for (const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+                let nx = from.x + dx, ny = from.y + dy;
+                while (nx >= 0 && nx < 9 && ny >= 0 && ny < 10) {
+                    const target = pieces.find(p => p.x === nx && p.y === ny);
+                    if (target) {
+                        if (target.side !== side) moves.push({ x: nx, y: ny });
+                        break;
+                    }
+                    moves.push({ x: nx, y: ny });
+                    nx += dx; ny += dy;
+                }
+            }
+        } else if (pt === 'Cannon') {
+            for (const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+                let nx = from.x + dx, ny = from.y + dy;
+                let jumped = false;
+                while (nx >= 0 && nx < 9 && ny >= 0 && ny < 10) {
+                    const target = pieces.find(p => p.x === nx && p.y === ny);
+                    if (target) {
+                        if (!jumped) { jumped = true; }
+                        else {
+                            if (target.side !== side) moves.push({ x: nx, y: ny });
+                            break;
+                        }
+                    } else {
+                        if (!jumped) moves.push({ x: nx, y: ny });
+                    }
+                    nx += dx; ny += dy;
+                }
+            }
+        } else if (pt === 'Pawn') {
+            const fwd = side === 'red' ? -1 : 1;
+            const ny = from.y + fwd;
+            if (ny >= 0 && ny < 10) {
+                const target = pieces.find(p => p.x === from.x && p.y === ny);
+                if (!target || target.side !== side) moves.push({ x: from.x, y: ny });
+            }
+            const pastRiver = side === 'red' ? from.y <= 4 : from.y >= 5;
+            if (pastRiver) {
+                for (const nx of [from.x - 1, from.x + 1]) {
+                    if (nx >= 0 && nx < 9) {
+                        const target = pieces.find(p => p.x === nx && p.y === from.y);
+                        if (!target || target.side !== side) moves.push({ x: nx, y: from.y });
+                    }
+                }
+            }
+        }
+        return moves;
     }
 }

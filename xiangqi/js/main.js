@@ -14,10 +14,14 @@ class MainController {
         this.fenInput = document.getElementById('fenInput');
         this.bindEvents();
 
-        showLoading('正在加载引擎...');
+        this.game.onUpdate = () => this.updateView();
+        this.game.onAnalysisProgress = (msg) => this.handleAnalysisProgress(msg);
+        this.game.onAnalysisComplete = (msg) => this.handleAnalysisComplete(msg);
+        this.game.onError = (msg) => { showError(msg); hideAnalyzing(); };
+
+        showLoading('正在连接服务器...');
         try {
-            await this.game.initEngine();
-            this.updateView();
+            await this.game.connect();
             hideLoading();
         } catch (e) {
             showError(e.message);
@@ -55,16 +59,12 @@ class MainController {
                 this.game.makeMove(from, to);
                 this.boardRenderer.selectedPos = null;
                 this.boardRenderer.legalTargets = [];
-                this.updateView();
-                if (this.game.isGameOver() === 'playing') {
-                    this.autoAnalyze();
-                }
                 return;
             }
 
             const state = this.game.getBoardState();
-            const targetPiece = state ? state.pieces.find(p => p.x === pos.x && p.y === pos.y) : null;
-            if (targetPiece && targetPiece.side === state.sideToMove) {
+            const targetPiece = state ? state.pieces.find(p => p.x === pos.x && p.y === pos.y && p.side === state.sideToMove) : null;
+            if (targetPiece) {
                 this.boardRenderer.selectedPos = pos;
                 this.boardRenderer.legalTargets = this.game.getLegalTargets(pos);
                 this.updateView();
@@ -86,47 +86,14 @@ class MainController {
         }
     }
 
-    autoAnalyze() {
-        if (this.game.isAnalyzing) return;
-        showAnalyzing('快速分析中...');
-        setTimeout(() => {
-            const quickResult = this.game.analyze(2);
-            if (quickResult) {
-                this.boardRenderer.candidates = quickResult.candidates;
-                this.boardRenderer.recommendedMove = quickResult.bestMove;
-                this.boardRenderer.searchPath = quickResult.searchPath;
-                this.updateAnalysisPanel(quickResult, 2);
-                this.updateView();
-            }
-            hideAnalyzing();
-            const targetDepth = this.game.analysisDepth;
-            if (targetDepth > 2) {
-                setTimeout(() => {
-                    showAnalyzing('深度分析中(' + targetDepth + '层)...');
-                    setTimeout(() => {
-                        const deepResult = this.game.analyze(targetDepth);
-                        if (deepResult) {
-                            this.boardRenderer.candidates = deepResult.candidates;
-                            this.boardRenderer.recommendedMove = deepResult.bestMove;
-                            this.boardRenderer.searchPath = deepResult.searchPath;
-                            this.updateAnalysisPanel(deepResult, targetDepth);
-                            this.updateView();
-                        }
-                        hideAnalyzing();
-                    }, 10);
-                }, 50);
-            }
-        }, 10);
-    }
-
     onNewGame() {
-        this.game.reset();
+        this.game.newGame();
         this.boardRenderer.selectedPos = null;
         this.boardRenderer.legalTargets = [];
         this.boardRenderer.recommendedMove = null;
         this.boardRenderer.candidates = [];
         this.boardRenderer.searchPath = [];
-        this.updateView();
+        this.currentAnalysis = null;
     }
 
     onUndo() {
@@ -134,46 +101,49 @@ class MainController {
         this.boardRenderer.selectedPos = null;
         this.boardRenderer.legalTargets = [];
         this.boardRenderer.candidates = [];
-        this.updateView();
-        if (this.game.isGameOver() === 'playing') {
-            this.autoAnalyze();
-        }
     }
 
     onAnalyze() {
         if (this.game.isAnalyzing) return;
         const depth = this.game.analysisDepth;
         showAnalyzing('分析中(' + depth + '层)...');
-        setTimeout(() => {
-            const result = this.game.analyze(depth);
-            if (result) {
-                this.boardRenderer.candidates = result.candidates;
-                this.boardRenderer.recommendedMove = result.bestMove;
-                this.boardRenderer.searchPath = result.searchPath;
-                this.updateAnalysisPanel(result, depth);
-            }
-            this.updateView();
-            hideAnalyzing();
-        }, 10);
+        this.game.requestAnalysis(depth);
     }
 
     onImport() {
         const fen = this.fenInput.value.trim();
         if (!fen) { showError('请输入FEN字符串'); return; }
-        const success = this.game.importFEN(fen);
-        if (!success) { showError('FEN格式无效'); return; }
+        this.game.importFEN(fen);
         this.boardRenderer.selectedPos = null;
         this.boardRenderer.legalTargets = [];
         this.boardRenderer.recommendedMove = null;
         this.boardRenderer.candidates = [];
-        this.updateView();
-        if (this.game.isGameOver() === 'playing') {
-            this.autoAnalyze();
-        }
     }
 
     onExport() {
         this.fenInput.value = this.game.exportFEN();
+    }
+
+    handleAnalysisProgress(msg) {
+        const analysis = this.game.currentAnalysis;
+        if (analysis && analysis.bestMove) {
+            this.boardRenderer.recommendedMove = analysis.bestMove;
+            this.boardRenderer.render();
+        }
+        const progressEl = document.getElementById('analyzingIndicator');
+        progressEl.textContent = '分析中... 已完成第' + msg.depth + '层';
+    }
+
+    handleAnalysisComplete(msg) {
+        const analysis = this.game.currentAnalysis;
+        if (analysis) {
+            this.boardRenderer.candidates = analysis.candidates;
+            this.boardRenderer.recommendedMove = analysis.bestMove;
+            this.boardRenderer.searchPath = analysis.searchPath;
+            this.updateAnalysisPanel(analysis, analysis.depth);
+            this.updateView();
+        }
+        hideAnalyzing();
     }
 
     updateView() {
@@ -275,8 +245,7 @@ class MainController {
         let pathText = '';
         for (let i = 0; i < result.searchPath.length; i++) {
             const m = result.searchPath[i];
-            const desc = this.game.describeMove(m.from.x, m.from.y, m.to.x, m.to.y);
-            pathText += desc + ' ';
+            pathText += `(${m.from.x},${m.from.y})→(${m.to.x},${m.to.y}) `;
         }
         pathDisplay.textContent = pathText || '无推演路径';
         statusInfo.innerHTML = `节点: ${result.nodesSearched.toLocaleString()} | 深度: ${depth}层`;
@@ -289,8 +258,7 @@ class MainController {
             const m = this.game.moveHistory[i];
             const side = i % 2 === 0 ? '红' : '黑';
             const num = Math.floor(i / 2) + 1;
-            const desc = m.description || this.game.describeMove(m.from.x, m.from.y, m.to.x, m.to.y);
-            html += `<div class="history-item"><span>${num}. ${side}</span><span>${desc}</span></div>`;
+            html += `<div class="history-item"><span>${num}. ${side}</span><span>${m.description || '?'}</span></div>`;
         }
         historyEl.innerHTML = html;
         if (historyEl.lastChild) historyEl.lastChild.scrollIntoView();

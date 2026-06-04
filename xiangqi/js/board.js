@@ -248,7 +248,7 @@ export class BoardRenderer {
     drawCheckHighlight() {
         if (!this.isInCheck) return;
         const king = this.pieces.find(p =>
-            p.piece_type === 'King' && p.side === this.sideToMove
+            p.type === 'King' && p.side === this.sideToMove
         );
         if (!king) return;
         const px = this.posToPixel({ x: king.x, y: king.y });

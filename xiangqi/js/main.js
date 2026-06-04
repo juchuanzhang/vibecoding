@@ -88,18 +88,35 @@ class MainController {
 
     autoAnalyze() {
         if (this.game.isAnalyzing) return;
-        showAnalyzing();
+        showAnalyzing('快速分析中...');
         setTimeout(() => {
-            const result = this.game.analyze(this.game.analysisDepth);
-            if (result) {
-                this.boardRenderer.candidates = result.candidates;
-                this.boardRenderer.recommendedMove = result.bestMove;
-                this.boardRenderer.searchPath = result.searchPath;
-                this.updateAnalysisPanel(result);
+            const quickResult = this.game.analyze(2);
+            if (quickResult) {
+                this.boardRenderer.candidates = quickResult.candidates;
+                this.boardRenderer.recommendedMove = quickResult.bestMove;
+                this.boardRenderer.searchPath = quickResult.searchPath;
+                this.updateAnalysisPanel(quickResult, 2);
+                this.updateView();
             }
-            this.updateView();
             hideAnalyzing();
-        }, 50);
+            const targetDepth = this.game.analysisDepth;
+            if (targetDepth > 2) {
+                setTimeout(() => {
+                    showAnalyzing('深度分析中(' + targetDepth + '层)...');
+                    setTimeout(() => {
+                        const deepResult = this.game.analyze(targetDepth);
+                        if (deepResult) {
+                            this.boardRenderer.candidates = deepResult.candidates;
+                            this.boardRenderer.recommendedMove = deepResult.bestMove;
+                            this.boardRenderer.searchPath = deepResult.searchPath;
+                            this.updateAnalysisPanel(deepResult, targetDepth);
+                            this.updateView();
+                        }
+                        hideAnalyzing();
+                    }, 10);
+                }, 50);
+            }
+        }, 10);
     }
 
     onNewGame() {
@@ -126,18 +143,18 @@ class MainController {
     onAnalyze() {
         if (this.game.isAnalyzing) return;
         const depth = this.game.analysisDepth;
-        showAnalyzing();
+        showAnalyzing('分析中(' + depth + '层)...');
         setTimeout(() => {
             const result = this.game.analyze(depth);
             if (result) {
                 this.boardRenderer.candidates = result.candidates;
                 this.boardRenderer.recommendedMove = result.bestMove;
                 this.boardRenderer.searchPath = result.searchPath;
-                this.updateAnalysisPanel(result);
+                this.updateAnalysisPanel(result, depth);
             }
             this.updateView();
             hideAnalyzing();
-        }, 50);
+        }, 10);
     }
 
     onImport() {
@@ -241,7 +258,7 @@ class MainController {
         }
     }
 
-    updateAnalysisPanel(result) {
+    updateAnalysisPanel(result, depth) {
         const candidatesList = document.getElementById('candidatesList');
         const pathDisplay = document.getElementById('pathDisplay');
         const statusInfo = document.getElementById('statusInfo');
@@ -262,7 +279,7 @@ class MainController {
             pathText += desc + ' ';
         }
         pathDisplay.textContent = pathText || '无推演路径';
-        statusInfo.innerHTML = `节点: ${result.nodesSearched} | 深度: ${this.game.analysisDepth}`;
+        statusInfo.innerHTML = `节点: ${result.nodesSearched.toLocaleString()} | 深度: ${depth}层`;
     }
 
     updateHistoryPanel() {
@@ -297,8 +314,10 @@ function showError(msg) {
     setTimeout(() => el.style.display = 'none', 3000);
 }
 
-function showAnalyzing() {
-    document.getElementById('analyzingIndicator').style.display = 'block';
+function showAnalyzing(msg) {
+    const el = document.getElementById('analyzingIndicator');
+    el.textContent = msg || '分析中...';
+    el.style.display = 'block';
     document.getElementById('btnAnalyze').disabled = true;
 }
 

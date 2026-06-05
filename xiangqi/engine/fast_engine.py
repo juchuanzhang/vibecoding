@@ -17,10 +17,11 @@ RED_COLS = ["九", "八", "七", "六", "五", "四", "三", "二", "一"]
 BLACK_COLS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 RED_NUMS = ["一", "二", "三", "四", "五", "六", "七", "八", "九"]
 BLACK_NUMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-BASE_VALUES = [10000, 120, 120, 270, 600, 285, 30]
+BASE_VALUES = [10000, 120, 120, 270, 600, 450, 30]
+CANNON_ENDGAME_VALUE = 240
 PAST_RIVER_PAWN_VALUE = 70
 MID_PAWN_VALUE = 50
-PIECE_SORT_VALUES = {KING: 10000, ROOK: 600, CANNON: 285, KNIGHT: 270, ADVISOR: 120, BISHOP: 120, PAWN: 30}
+PIECE_SORT_VALUES = {KING: 10000, ROOK: 600, CANNON: 450, KNIGHT: 270, ADVISOR: 120, BISHOP: 120, PAWN: 30}
 
 ZOBRIST_SEED = 1070372
 _zobrist_pieces = None
@@ -69,8 +70,10 @@ FEN_PIECE_MAP = {'K':(KING,RED),'A':(ADVISOR,RED),'B':(BISHOP,RED),'N':(KNIGHT,R
 def _mirror_y(y, side):
     return y if side == RED else 9 - y
 
-def _piece_value(pt, side, x, y):
+def _piece_value(pt, side, x, y, total_pieces=32):
     base = BASE_VALUES[pt]
+    if pt == CANNON:
+        base = CANNON_ENDGAME_VALUE + (BASE_VALUES[CANNON] - CANNON_ENDGAME_VALUE) * min(total_pieces / 32, 1)
     pos_val = POS_TABLES[pt][_mirror_y(y, side)][x]
     if pt == PAWN:
         past_river = (y <= 4) if side == RED else (y >= 5)
@@ -80,12 +83,13 @@ def _piece_value(pt, side, x, y):
     return base + pos_val
 
 def _evaluate(cells, side, rkx, rky, bkx, bky):
-    red_score = 0; black_score = 0; red_count = 0; black_count = 0
+    red_score = 0; black_score = 0; red_count = 0; black_count = 0; total_pieces = 0
     for y in range(10):
         for x in range(9):
             c = cells[y * 9 + x]
             if c is None: continue
-            val = _piece_value(c[0], c[1], x, y)
+            total_pieces += 1
+            val = _piece_value(c[0], c[1], x, y, total_pieces)
             if c[1] == RED: red_score += val; red_count += 1
             else: black_score += val; black_count += 1
     score = red_score - black_score

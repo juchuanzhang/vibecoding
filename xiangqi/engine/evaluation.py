@@ -7,7 +7,7 @@ PIECE_BASE_VALUES = {
     PieceType.Bishop: 120,
     PieceType.Knight: 270,
     PieceType.Rook: 600,
-    PieceType.Cannon: 285,
+    PieceType.Cannon: 450,
     PieceType.Pawn: 30,
 }
 PAST_RIVER_PAWN_VALUE = 70

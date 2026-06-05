@@ -357,8 +357,12 @@ class FastBoard:
         return b
 
 class FastEngine:
+    NULL_MOVE_DEPTH = 3
+    LMR_MIN_DEPTH = 3
+    LMR_MIN_MOVES = 4
+
     def __init__(self, thread_count=None):
-        self.thread_count = thread_count or os.cpu_count() or 4
+        self.thread_count = thread_count or int(os.environ.get('XIANGQI_THREADS', os.cpu_count() or 4))
         self.tt = {}; self.killers = [[None, None] for _ in range(64)]
         self.nodes = 0; self.ht = [[0]*9 for _ in range(10)]
 
@@ -381,6 +385,7 @@ class FastEngine:
         return best
 
     def _search_depth(self, board, depth):
+        self.nodes = 0
         moves = gen_moves(board.cells, board.side, board.rkx, board.rky, board.bkx, board.bky)
         if not moves:
             kx = board.rkx if board.side == RED else board.bkx
@@ -392,9 +397,15 @@ class FastEngine:
         best_score = -INFINITY_SCORE if maximizing else INFINITY_SCORE
         best_move = moves[0]; candidates = []
         sb = board.clone()
-        for fx, fy, tx, ty in moves:
+        for i, (fx, fy, tx, ty) in enumerate(moves):
             sb.make_move(fx, fy, tx, ty)
-            score = self._alpha_beta(sb, depth - 1, -INFINITY_SCORE, INFINITY_SCORE, not maximizing, 0)
+            reduction = 0
+            if depth >= self.LMR_MIN_DEPTH and i >= self.LMR_MIN_MOVES and sb.cells[ty * 9 + tx] is None:
+                reduction = 1 + (i >= 8)
+            s_depth = depth - 1 - reduction
+            score = self._alpha_beta(sb, s_depth, -INFINITY_SCORE, INFINITY_SCORE, not maximizing, 0)
+            if reduction > 0 and ((maximizing and score > best_score) or (not maximizing and score < best_score)):
+                score = self._alpha_beta(sb, depth - 1, -INFINITY_SCORE, INFINITY_SCORE, not maximizing, 0)
             sb.undo_move()
             candidates.append(((fx, fy, tx, ty), score))
             if maximizing and score > best_score: best_score = score; best_move = (fx, fy, tx, ty)
@@ -424,20 +435,35 @@ class FastEngine:
             elif ef == 2:
                 if es <= alpha: return es
                 if es < beta: beta = es
-        if depth == 0:
+        if depth <= 0:
             return _evaluate(board.cells, board.side, board.rkx, board.rky, board.bkx, board.bky)
+        in_check = _is_in_check(board.cells, board.side,
+                                 board.rkx if board.side == RED else board.bkx,
+                                 board.rky if board.side == RED else board.bky,
+                                 board.rkx, board.rky, board.bkx, board.bky)
+        if not in_check and depth >= self.NULL_MOVE_DEPTH and ply > 0:
+            board.side = 1 - board.side; board.hash ^= _zobrist_side
+            nm_score = -self._alpha_beta(board, depth - 2, -beta, -beta + 1, not maximizing, ply + 1)
+            board.side = 1 - board.side; board.hash ^= _zobrist_side
+            if maximizing and nm_score >= beta: return beta
+            elif not maximizing and nm_score <= alpha: return alpha
         moves = gen_moves(board.cells, board.side, board.rkx, board.rky, board.bkx, board.bky)
         if not moves:
-            kx = board.rkx if board.side == RED else board.bkx; ky = board.rky if board.side == RED else board.bky
-            if _is_in_check(board.cells, board.side, kx, ky, board.rkx, board.rky, board.bkx, board.bky):
+            if in_check:
                 return -INFINITY_SCORE + ply if maximizing else INFINITY_SCORE - ply
             return 0
         self._order_moves(board, moves, ply)
         orig_alpha = alpha; best_score = -INFINITY_SCORE if maximizing else INFINITY_SCORE; best_move = moves[0]
-        for fx, fy, tx, ty in moves:
+        for i, (fx, fy, tx, ty) in enumerate(moves):
             is_cap = board.cells[ty * 9 + tx] is not None
             board.make_move(fx, fy, tx, ty)
-            score = self._alpha_beta(board, depth - 1, alpha, beta, not maximizing, ply + 1)
+            reduction = 0
+            if depth >= self.LMR_MIN_DEPTH and i >= self.LMR_MIN_MOVES and not is_cap and not in_check:
+                reduction = 1 + (i >= 8)
+            s_depth = depth - 1 - reduction
+            score = self._alpha_beta(board, s_depth, alpha, beta, not maximizing, ply + 1)
+            if reduction > 0 and ((maximizing and score > alpha) or (not maximizing and score < beta)):
+                score = self._alpha_beta(board, depth - 1, alpha, beta, not maximizing, ply + 1)
             board.undo_move()
             if maximizing:
                 if score > best_score: best_score = score; best_move = (fx, fy, tx, ty)

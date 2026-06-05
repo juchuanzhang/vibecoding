@@ -11,6 +11,11 @@ from engine.describe import describe_move as describe_move_func
 from engine.fast_engine import FastBoard, FastEngine, describe_move as fast_describe
 
 DEBUG = '--debug' in sys.argv or '-d' in sys.argv
+THREAD_COUNT = None
+for i, arg in enumerate(sys.argv):
+    if arg == '--threads' and i + 1 < len(sys.argv):
+        THREAD_COUNT = int(sys.argv[i + 1])
+        break
 
 logger = logging.getLogger('xiangqi')
 logger.setLevel(logging.DEBUG if DEBUG else logging.WARNING)
@@ -23,7 +28,7 @@ class GameSession:
     def __init__(self):
         self.board = Board()
         self.fast_board = FastBoard()
-        self.engine = FastEngine()
+        self.engine = FastEngine(thread_count=THREAD_COUNT)
         self.move_records = []
         self.move_number = 0
         self.analyzing = False
@@ -295,5 +300,5 @@ app.router.add_static('/css', './css')
 app.router.add_get('/ws', websocket_handler)
 
 if __name__ == '__main__':
-    logger.info("Starting server on localhost:8080 (debug=%s)", DEBUG)
+    logger.info("Starting server on localhost:8080 (debug=%s threads=%d)", DEBUG, THREAD_COUNT or os.cpu_count() or 4)
     web.run_app(app, host='localhost', port=8080)

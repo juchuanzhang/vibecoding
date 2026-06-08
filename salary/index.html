@@ -79,31 +79,57 @@ table .total-row { background: #e8f5e9; font-weight: bold; }
 </div>
 
 <div class="card">
-<h2>五险一金（个人缴纳）</h2>
-<button class="toggle-btn" onclick="togglePanel('socialSettings')">展开/收起 详细设置</button>
+<h2>五险一金</h2>
+<button class="toggle-btn" onclick="togglePanel('socialSettings')">展开/收起 缴费基数上下限</button>
 <div class="form-row">
   <div class="form-group">
-    <label>养老保险比例</label>
+    <label>养老保险比例（个人）</label>
     <input type="number" id="pensionRate" value="8" step="0.1">
     <div class="unit">%</div>
   </div>
   <div class="form-group">
-    <label>医疗保险比例</label>
-    <input type="number" id="medicalRate" value="2" step="0.1">
-    <div class="unit">%（基本医疗）</div>
-  </div>
-  <div class="form-group">
-    <label>补充医疗比例</label>
-    <input type="number" id="suppMedicalRate" value="0.5" step="0.1">
-    <div class="unit">%</div>
+    <label>养老保险缴费基数</label>
+    <input type="number" id="pensionBase" value="" placeholder="留空按月薪自动">
+    <div class="unit">元/月</div>
   </div>
 </div>
 <div class="form-row">
   <div class="form-group">
-    <label>失业保险比例</label>
+    <label>医疗保险比例（个人）</label>
+    <input type="number" id="medicalRate" value="2" step="0.1">
+    <div class="unit">%（基本医疗）</div>
+  </div>
+  <div class="form-group">
+    <label>医疗保险缴费基数</label>
+    <input type="number" id="medicalBase" value="" placeholder="留空按月薪自动">
+    <div class="unit">元/月</div>
+  </div>
+</div>
+<div class="form-row">
+  <div class="form-group">
+    <label>补充医疗比例（个人）</label>
+    <input type="number" id="suppMedicalRate" value="0.5" step="0.1">
+    <div class="unit">%</div>
+  </div>
+  <div class="form-group">
+    <label>补充医疗缴费基数</label>
+    <input type="number" id="suppMedicalBase" value="" placeholder="留空按月薪自动">
+    <div class="unit">元/月</div>
+  </div>
+</div>
+<div class="form-row">
+  <div class="form-group">
+    <label>失业保险比例（个人）</label>
     <input type="number" id="unemployRate" value="0.5" step="0.1">
     <div class="unit">%</div>
   </div>
+  <div class="form-group">
+    <label>失业保险缴费基数</label>
+    <input type="number" id="unemployBase" value="" placeholder="留空按月薪自动">
+    <div class="unit">元/月</div>
+  </div>
+</div>
+<div class="form-row">
   <div class="form-group">
     <label>住房公积金比例（个人）</label>
     <input type="number" id="housingRatePersonal" value="12" step="1">
@@ -114,7 +140,13 @@ table .total-row { background: #e8f5e9; font-weight: bold; }
     <input type="number" id="housingRateCompany" value="12" step="1">
     <div class="unit">%（深圳5%-12%）</div>
   </div>
+  <div class="form-group">
+    <label>住房公积金缴费基数</label>
+    <input type="number" id="housingBase" value="" placeholder="留空按月薪自动">
+    <div class="unit">元/月</div>
+  </div>
 </div>
+<div class="help-text">缴费基数留空时，自动取 clamp(税前月薪, 该项基数下限, 该项基数上限)。填写后，取 clamp(填写值, 该项基数下限, 该项基数上限)。</div>
 
 <div class="settings-panel" id="socialSettings">
 <div class="form-row">
@@ -177,7 +209,6 @@ table .total-row { background: #e8f5e9; font-weight: bold; }
     <div class="unit">元</div>
   </div>
 </div>
-<div class="help-text">每项五险一金的缴费基数 = clamp(税前月薪, 该项基数下限, 该项基数上限)</div>
 </div>
 </div>
 
@@ -355,10 +386,6 @@ function clamp(val, min, max) {
   return Math.min(Math.max(val, min), max);
 }
 
-function getBase(salary, min, max) {
-  return clamp(salary, min, max);
-}
-
 function fmt(n) {
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -366,6 +393,13 @@ function fmt(n) {
 function pct(n, total) {
   if (total === 0) return '0.00%';
   return (n / total * 100).toFixed(2) + '%';
+}
+
+function resolveBase(elId, salary, minId, maxId) {
+  const el = document.getElementById(elId);
+  const val = el.value.trim();
+  const base = val === '' ? salary : parseFloat(val) || salary;
+  return clamp(base, parseFloat(document.getElementById(minId).value), parseFloat(document.getElementById(maxId).value));
 }
 
 function calcMonthlyInsurance(salary) {
@@ -376,11 +410,11 @@ function calcMonthlyInsurance(salary) {
   const housingRatePersonal = parseFloat(document.getElementById('housingRatePersonal').value) / 100;
   const housingRateCompany = parseFloat(document.getElementById('housingRateCompany').value) / 100;
 
-  const pensionBase = getBase(salary, parseFloat(document.getElementById('pensionBaseMin').value), parseFloat(document.getElementById('pensionBaseMax').value));
-  const medicalBase = getBase(salary, parseFloat(document.getElementById('medicalBaseMin').value), parseFloat(document.getElementById('medicalBaseMax').value));
-  const suppMedicalBase = getBase(salary, parseFloat(document.getElementById('suppMedicalBaseMin').value), parseFloat(document.getElementById('suppMedicalBaseMax').value));
-  const unemployBase = getBase(salary, parseFloat(document.getElementById('unemployBaseMin').value), parseFloat(document.getElementById('unemployBaseMax').value));
-  const housingBase = getBase(salary, parseFloat(document.getElementById('housingBaseMin').value), parseFloat(document.getElementById('housingBaseMax').value));
+  const pensionBase = resolveBase('pensionBase', salary, 'pensionBaseMin', 'pensionBaseMax');
+  const medicalBase = resolveBase('medicalBase', salary, 'medicalBaseMin', 'medicalBaseMax');
+  const suppMedicalBase = resolveBase('suppMedicalBase', salary, 'suppMedicalBaseMin', 'suppMedicalBaseMax');
+  const unemployBase = resolveBase('unemployBase', salary, 'unemployBaseMin', 'unemployBaseMax');
+  const housingBase = resolveBase('housingBase', salary, 'housingBaseMin', 'housingBaseMax');
 
   const pension = pensionBase * pensionRate;
   const medical = medicalBase * medicalRate;

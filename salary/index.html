@@ -119,13 +119,37 @@ table .total-row { background: #e8f5e9; font-weight: bold; }
 <div class="settings-panel" id="socialSettings">
 <div class="form-row">
   <div class="form-group">
-    <label>养老/医疗基数下限</label>
+    <label>养老保险基数下限</label>
     <input type="number" id="pensionBaseMin" value="4492">
     <div class="unit">元</div>
   </div>
   <div class="form-group">
-    <label>养老/医疗基数上限</label>
+    <label>养老保险基数上限</label>
     <input type="number" id="pensionBaseMax" value="27501">
+    <div class="unit">元</div>
+  </div>
+</div>
+<div class="form-row">
+  <div class="form-group">
+    <label>医疗保险基数下限</label>
+    <input type="number" id="medicalBaseMin" value="4492">
+    <div class="unit">元</div>
+  </div>
+  <div class="form-group">
+    <label>医疗保险基数上限</label>
+    <input type="number" id="medicalBaseMax" value="27501">
+    <div class="unit">元</div>
+  </div>
+</div>
+<div class="form-row">
+  <div class="form-group">
+    <label>补充医疗基数下限</label>
+    <input type="number" id="suppMedicalBaseMin" value="4492">
+    <div class="unit">元</div>
+  </div>
+  <div class="form-group">
+    <label>补充医疗基数上限</label>
+    <input type="number" id="suppMedicalBaseMax" value="27501">
     <div class="unit">元</div>
   </div>
 </div>
@@ -153,6 +177,7 @@ table .total-row { background: #e8f5e9; font-weight: bold; }
     <div class="unit">元</div>
   </div>
 </div>
+<div class="help-text">每项五险一金的缴费基数 = clamp(税前月薪, 该项基数下限, 该项基数上限)</div>
 </div>
 </div>
 
@@ -351,21 +376,15 @@ function calcMonthlyInsurance(salary) {
   const housingRatePersonal = parseFloat(document.getElementById('housingRatePersonal').value) / 100;
   const housingRateCompany = parseFloat(document.getElementById('housingRateCompany').value) / 100;
 
-  const pensionBaseMin = parseFloat(document.getElementById('pensionBaseMin').value);
-  const pensionBaseMax = parseFloat(document.getElementById('pensionBaseMax').value);
-  const unemployBaseMin = parseFloat(document.getElementById('unemployBaseMin').value);
-  const unemployBaseMax = parseFloat(document.getElementById('unemployBaseMax').value);
-  const housingBaseMin = parseFloat(document.getElementById('housingBaseMin').value);
-  const housingBaseMax = parseFloat(document.getElementById('housingBaseMax').value);
-
-  const pensionBase = getBase(salary, pensionBaseMin, pensionBaseMax);
-  const medicalBase = getBase(salary, pensionBaseMin, pensionBaseMax);
-  const unemployBase = getBase(salary, unemployBaseMin, unemployBaseMax);
-  const housingBase = getBase(salary, housingBaseMin, housingBaseMax);
+  const pensionBase = getBase(salary, parseFloat(document.getElementById('pensionBaseMin').value), parseFloat(document.getElementById('pensionBaseMax').value));
+  const medicalBase = getBase(salary, parseFloat(document.getElementById('medicalBaseMin').value), parseFloat(document.getElementById('medicalBaseMax').value));
+  const suppMedicalBase = getBase(salary, parseFloat(document.getElementById('suppMedicalBaseMin').value), parseFloat(document.getElementById('suppMedicalBaseMax').value));
+  const unemployBase = getBase(salary, parseFloat(document.getElementById('unemployBaseMin').value), parseFloat(document.getElementById('unemployBaseMax').value));
+  const housingBase = getBase(salary, parseFloat(document.getElementById('housingBaseMin').value), parseFloat(document.getElementById('housingBaseMax').value));
 
   const pension = pensionBase * pensionRate;
   const medical = medicalBase * medicalRate;
-  const suppMedical = medicalBase * suppMedicalRate;
+  const suppMedical = suppMedicalBase * suppMedicalRate;
   const unemploy = unemployBase * unemployRate;
   const housingPersonal = housingBase * housingRatePersonal;
   const housingCompany = housingBase * housingRateCompany;
@@ -373,7 +392,7 @@ function calcMonthlyInsurance(salary) {
   return {
     pension, medical, suppMedical, unemploy, housingPersonal, housingCompany,
     total: pension + medical + suppMedical + unemploy + housingPersonal,
-    pensionBase, medicalBase, unemployBase, housingBase
+    pensionBase, medicalBase, suppMedicalBase, unemployBase, housingBase
   };
 }
 

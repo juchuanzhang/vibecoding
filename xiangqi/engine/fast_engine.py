@@ -1,5 +1,6 @@
 import os
 import time
+from concurrent.futures import ProcessPoolExecutor
 
 KING = 0
 ADVISOR = 1
@@ -365,6 +366,12 @@ class FastEngine:
         self.thread_count = thread_count or int(os.environ.get('XIANGQI_THREADS', os.cpu_count() or 4))
         self.tt = {}; self.killers = [[None, None] for _ in range(64)]
         self.nodes = 0; self.ht = [[0]*9 for _ in range(10)]
+        self._pool = None
+
+    def _get_pool(self):
+        if self._pool is None and self.thread_count > 1:
+            self._pool = ProcessPoolExecutor(max_workers=self.thread_count)
+        return self._pool
 
     def clear(self):
         self.tt.clear(); self.killers = [[None, None] for _ in range(64)]; self.ht = [[0]*9 for _ in range(10)]
@@ -394,6 +401,9 @@ class FastEngine:
             return {'best': None, 'score': score, 'candidates': [], 'path': [], 'nodes': self.nodes, 'depth': depth, 'time': 0}
         self._order_root(board, moves)
         maximizing = board.side == RED
+        pool = self._get_pool()
+        if pool is not None and len(moves) > 1 and depth >= 3:
+            return self._search_depth_mt(board, moves, depth, maximizing, pool)
         best_score = -INFINITY_SCORE if maximizing else INFINITY_SCORE
         best_move = moves[0]; candidates = []
         sb = board.clone()
@@ -415,6 +425,32 @@ class FastEngine:
         candidates = candidates[:3]
         path = self._get_path(board, best_move, depth)
         return {'best': best_move, 'score': best_score, 'candidates': candidates, 'path': path, 'nodes': self.nodes, 'depth': depth, 'time': 0}
+
+    def _search_depth_mt(self, board, moves, depth, maximizing, pool):
+        fen = board.to_fen()
+        tt_hint = {}
+        e = self.tt.get(board.hash)
+        if e and e[2]:
+            tt_hint[board.hash] = e
+        futures = {}
+        for move in moves:
+            fx, fy, tx, ty = move
+            futures[move] = pool.submit(_worker_root_search, fen, fx, fy, tx, ty, depth - 1, maximizing, tt_hint)
+        best_score = -INFINITY_SCORE if maximizing else INFINITY_SCORE
+        best_move = moves[0]; candidates = []
+        total_nodes = 0
+        for move, future in futures.items():
+            result = future.result()
+            score = result['score']; total_nodes += result['nodes']
+            candidates.append((move, score))
+            if maximizing and score > best_score: best_score = score; best_move = move
+            elif not maximizing and score < best_score: best_score = score; best_move = move
+        self.nodes = total_nodes
+        if maximizing: candidates.sort(key=lambda c: -c[1])
+        else: candidates.sort(key=lambda c: c[1])
+        candidates = candidates[:3]
+        path = self._get_path(board, best_move, depth)
+        return {'best': best_move, 'score': best_score, 'candidates': candidates, 'path': path, 'nodes': total_nodes, 'depth': depth, 'time': 0}
 
     def _order_root(self, board, moves):
         moves.sort(key=lambda m: -PIECE_SORT_VALUES.get(board.cells[m[3]*9+m[2]][0] if board.cells[m[3]*9+m[2]] else PAWN, 0))
@@ -443,7 +479,7 @@ class FastEngine:
                                  board.rkx, board.rky, board.bkx, board.bky)
         if not in_check and depth >= self.NULL_MOVE_DEPTH and ply > 0:
             board.side = 1 - board.side; board.hash ^= _zobrist_side
-            nm_score = -self._alpha_beta(board, depth - 2, -beta, -beta + 1, not maximizing, ply + 1)
+            nm_score = self._alpha_beta(board, depth - 2, alpha, beta, not maximizing, ply + 1)
             board.side = 1 - board.side; board.hash ^= _zobrist_side
             if maximizing and nm_score >= beta: return beta
             elif not maximizing and nm_score <= alpha: return alpha
@@ -507,3 +543,13 @@ class FastEngine:
                     path.append(e[2]); sb.make_move(e[2][0], e[2][1], e[2][2], e[2][3]); continue
             break
         return path
+
+
+def _worker_root_search(fen, fx, fy, tx, ty, depth, maximizing, tt_hint):
+    board = FastBoard()
+    board.from_fen(fen)
+    board.make_move(fx, fy, tx, ty)
+    engine = FastEngine(thread_count=1)
+    engine.tt = tt_hint.copy()
+    score = engine._alpha_beta(board, depth, -INFINITY_SCORE, INFINITY_SCORE, not maximizing, 0)
+    return {'score': score, 'nodes': engine.nodes}

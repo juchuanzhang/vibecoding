@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Rust 入门教程</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+  h1 { border-bottom: 3px solid #000; padding-bottom: 8px; }
+  .section { background: #fff; border-radius: 8px; padding: 16px 20px; margin: 16px 0; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .section h2 { margin-top: 0; font-size: 1.2em; color: #b7410e; }
+  .code { background: #1e1e1e; color: #d4d4d4; padding: 12px 16px; border-radius: 6px; overflow-x: auto; white-space: pre; font: 14px/1.6 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+  .code .kw { color: #569cd6; }
+  .code .fn { color: #dcdcaa; }
+  .code .ty { color: #4ec9b0; }
+  .code .str { color: #ce9178; }
+  .code .cm { color: #6a9955; }
+  .code .num { color: #b5cea8; }
+  .code .macro { color: #d7ba7d; }
+  .output { background: #0d1117; color: #e6edf3; padding: 12px 16px; border-radius: 6px; font: 14px/1.6 'Cascadia Code', 'Fira Code', 'Consolas', monospace; white-space: pre; }
+  .note { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px 14px; border-radius: 4px; margin: 10px 0; }
+  .note strong { color: #856404; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+  th { background: #f0f0f0; }
+  .tag { display: inline-block; background: #e7f3ff; color: #004085; font-size: .75em; padding: 2px 8px; border-radius: 10px; margin: 2px; }
+</style>
+</head>
+<body>
+
+<h1>🦀 Rust 入门教程</h1>
+<p>代码 + 运行结果 + 讲解，一站式学习。</p>
+
+<!-- ========== 项目结构 ========== -->
+<div class="section">
+<h2>📁 项目结构</h2>
+<div class="code">
+hello_rust/
+├── <span class="kw">Cargo.toml</span>   <span class="cm"># 项目配置文件（包名、版本、依赖）</span>
+└── <span class="kw">src/</span>
+    └── <span class="fn">main.rs</span>   <span class="cm"># 入口文件</span>
+</div>
+<div class="note">
+  <strong>💡 说明：</strong>
+  <code>Cargo.toml</code> 类似 Node.js 的 <code>package.json</code>，管理元数据和依赖。
+  <code>src/main.rs</code> 是 Rust 的入口点，<code>fn main()</code> 是程序起点。
+  使用 <code>cargo new</code> 创建项目，<code>cargo run</code> 编译并运行。
+</div>
+</div>
+
+<!-- ========== 完整代码 ========== -->
+<div class="section">
+<h2>📜 完整代码（src/main.rs）</h2>
+<div class="code">
+<span class="kw">fn</span> <span class="fn">main</span>() {
+    <span class="cm">// ---------- 1. 变量与可变性 ----------</span>
+    <span class="kw">let</span> x = <span class="num">5</span>;
+    <span class="kw">let mut</span> y = <span class="num">10</span>;
+    y += <span class="num">1</span>;
+    <span class="macro">println!</span>(<span class="str">"x={x}, y={y}"</span>);
+
+    <span class="cm">// ---------- 2. 基本数据类型 ----------</span>
+    <span class="kw">let</span> _a: <span class="ty">i32</span> = -<span class="num">42</span>;
+    <span class="kw">let</span> _b: <span class="ty">u32</span> = <span class="num">100</span>;
+    <span class="kw">let</span> _c: <span class="ty">f64</span> = <span class="num">3.14</span>;
+    <span class="kw">let</span> _d: <span class="ty">bool</span> = <span class="kw">true</span>;
+    <span class="kw">let</span> _e: <span class="ty">char</span> = <span class="str">'R'</span>;
+    <span class="kw">let</span> _s: <span class="ty">&str</span> = <span class="str">"hello"</span>;
+
+    <span class="cm">// ---------- 3. 字符串 ----------</span>
+    <span class="kw">let mut</span> s = <span class="ty">String</span>::<span class="fn">from</span>(<span class="str">"Hello"</span>);
+    s.<span class="fn">push_str</span>(<span class="str">", Rust!"</span>);
+    <span class="macro">println!</span>(<span class="str">"{s}"</span>);
+
+    <span class="cm">// ---------- 4. 函数 ----------</span>
+    <span class="kw">let</span> sum = <span class="fn">add</span>(<span class="num">3</span>, <span class="num">5</span>);
+    <span class="macro">println!</span>(<span class="str">"3 + 5 = {sum}"</span>);
+
+    <span class="cm">// ---------- 5. if/else ----------</span>
+    <span class="kw">let</span> grade = <span class="num">85</span>;
+    <span class="kw">if</span> grade >= <span class="num">60</span> {
+        <span class="macro">println!</span>(<span class="str">"及格"</span>);
+    } <span class="kw">else</span> {
+        <span class="macro">println!</span>(<span class="str">"不及格"</span>);
+    }
+
+    <span class="cm">// ---------- 6. 循环 ----------</span>
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="num">0</span>..<span class="num">3</span> {
+        <span class="macro">println!</span>(<span class="str">"循环 {i}"</span>);
+    }
+
+    <span class="cm">// ---------- 7. match 匹配 ----------</span>
+    <span class="kw">let</span> number = <span class="num">2</span>;
+    <span class="kw">match</span> number {
+        <span class="num">1</span> => <span class="macro">println!</span>(<span class="str">"一"</span>),
+        <span class="num">2</span> => <span class="macro">println!</span>(<span class="str">"二"</span>),
+        _ => <span class="macro">println!</span>(<span class="str">"其他"</span>),
+    }
+
+    <span class="cm">// ---------- 8. 向量 (动态数组) ----------</span>
+    <span class="kw">let mut</span> v = <span class="macro">vec!</span>[<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>];
+    v.<span class="fn">push</span>(<span class="num">4</span>);
+    <span class="kw">for</span> val <span class="kw">in</span> &v {
+        <span class="macro">print!</span>(<span class="str">"{val} "</span>);
+    }
+    <span class="macro">println!</span>();
+
+    <span class="cm">// ---------- 9. Option 与错误处理 ----------</span>
+    <span class="kw">let</span> maybe = <span class="fn">divide</span>(<span class="num">10.0</span>, <span class="num">2.0</span>);
+    <span class="kw">match</span> maybe {
+        <span class="ty">Some</span>(result) => <span class="macro">println!</span>(<span class="str">"10 / 2 = {result}"</span>),
+        <span class="ty">None</span> => <span class="macro">println!</span>(<span class="str">"除数不能为 0"</span>),
+    }
+}
+
+<span class="kw">fn</span> <span class="fn">add</span>(a: <span class="ty">i32</span>, b: <span class="ty">i32</span>) -> <span class="ty">i32</span> {
+    a + b
+}
+
+<span class="kw">fn</span> <span class="fn">divide</span>(a: <span class="ty">f64</span>, b: <span class="ty">f64</span>) -> <span class="ty">Option</span>&lt;<span class="ty">f64</span>&gt; {
+    <span class="kw">if</span> b == <span class="num">0.0</span> {
+        <span class="ty">None</span>
+    } <span class="kw">else</span> {
+        <span class="ty">Some</span>(a / b)
+    }
+}
+</div>
+</div>
+
+<!-- ========== 运行结果 ========== -->
+<div class="section">
+<h2>▶️ 运行结果</h2>
+<div class="output">x=5, y=11
+Hello, Rust!
+3 + 5 = 8
+及格
+循环 0
+循环 1
+循环 2
+二
+1 2 3 4
+10 / 2 = 5</div>
+</div>
+
+<!-- ========== 逐段讲解 ========== -->
+<div class="section">
+<h2>🧩 逐段讲解</h2>
+
+<h3>1️⃣ 变量与可变性</h3>
+<div class="code">
+<span class="kw">let</span> x = <span class="num">5</span>;
+<span class="kw">let mut</span> y = <span class="num">10</span>;
+y += <span class="num">1</span>;
+</div>
+<p><strong>关键点：</strong></p>
+<ul>
+  <li><code>let</code> 声明的变量默认<strong>不可变</strong>（immutable）</li>
+  <li>加 <code>mut</code> 关键字才可变 —— 这是 Rust 的设计哲学：显式优于隐式</li>
+  <li>打印字符串中 <code>{x}</code> 是直接插值语法</li>
+</ul>
+<div class="note">⚡ <strong>Rust 特色：</strong> 默认不可变，减少意外修改。相比其他语言默认可变，这是一个重要区别。</div>
+
+<h3>2️⃣ 基本数据类型</h3>
+<table>
+  <tr><th>类型</th><th>说明</th><th>示例</th></tr>
+  <tr><td><code>i32</code></td><td>有符号 32 位整数</td><td><code>-42</code></td></tr>
+  <tr><td><code>u32</code></td><td>无符号 32 位整数</td><td><code>100</code></td></tr>
+  <tr><td><code>f64</code></td><td>64 位浮点数（双精度）</td><td><code>3.14</code></td></tr>
+  <tr><td><code>bool</code></td><td>布尔值</td><td><code>true</code></td></tr>
+  <tr><td><code>char</code></td><td>字符，4 字节，支持 Unicode</td><td><code>'R'</code>, <code>'🦀'</code></td></tr>
+  <tr><td><code>&str</code></td><td>字符串切片（不可变引用）</td><td><code>"hello"</code></td></tr>
+</table>
+<div class="note">💡 Rust 的 <code>char</code> 是 4 字节（UTF-32），不像 C 语言是 1 字节。可以存任何 Unicode 字符。</div>
+
+<h3>3️⃣ 字符串（String）</h3>
+<div class="code">
+<span class="kw">let mut</span> s = <span class="ty">String</span>::<span class="fn">from</span>(<span class="str">"Hello"</span>);
+s.<span class="fn">push_str</span>(<span class="str">", Rust!"</span>);
+</div>
+<p>Rust 有两种字符串类型：</p>
+<ul>
+  <li><code>&str</code> —— 不可变字符串切片（编译期已知，类似字符串字面量）</li>
+  <li><code>String</code> —— 可变、堆分配的字符串（运行时动态增长）</li>
+</ul>
+<div class="note">⚡ <strong>所有权：</strong> <code>String</code> 拥有数据，超出作用域自动释放内存。没有 GC，没有手动 free。</div>
+
+<h3>4️⃣ 函数</h3>
+<div class="code">
+<span class="kw">fn</span> <span class="fn">add</span>(a: <span class="ty">i32</span>, b: <span class="ty">i32</span>) -> <span class="ty">i32</span> {
+    a + b
+}
+</div>
+<ul>
+  <li>必须声明参数类型和返回类型</li>
+  <li>最后一个表达式是返回值（<strong>没有分号</strong>）</li>
+  <li>如果想提前返回，用 <code>return</code> 关键字</li>
+</ul>
+
+<h3>5️⃣ if/else</h3>
+<div class="code">
+<span class="kw">if</span> grade >= <span class="num">60</span> { ... } <span class="kw">else</span> { ... }
+</div>
+<p>与大多数语言类似，但注意：条件不需要括号，但代码块必须用花括号。</p>
+
+<h3>6️⃣ for 循环</h3>
+<div class="code">
+<span class="kw">for</span> i <span class="kw">in</span> <span class="num">0</span>..<span class="num">3</span> { ... }
+</div>
+<p><code>0..3</code> 是一个 Range（范围），左闭右开，产生 0, 1, 2。</p>
+
+<h3>7️⃣ match 匹配</h3>
+<div class="code">
+<span class="kw">match</span> number {
+    <span class="num">1</span> => ...,
+    <span class="num">2</span> => ...,
+    _ => ...,  <span class="cm">// 通配符，匹配所有其余情况</span>
+}
+</div>
+<p><code>match</code> 是 Rust 的王牌 —— 必须穷举所有可能性！<code>_</code> 是通配符。</p>
+
+<h3>8️⃣ 向量（Vec）</h3>
+<div class="code">
+<span class="kw">let mut</span> v = <span class="macro">vec!</span>[<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>];
+v.<span class="fn">push</span>(<span class="num">4</span>);
+</div>
+<p><code>Vec&lt;T&gt;</code> 是动态数组，<code>vec!</code> 是创建向量的宏。</p>
+
+<h3>9️⃣ Option 与错误处理</h3>
+<div class="code">
+<span class="kw">fn</span> <span class="fn">divide</span>(a: <span class="ty">f64</span>, b: <span class="ty">f64</span>) -> <span class="ty">Option</span>&lt;<span class="ty">f64</span>&gt; {
+    <span class="kw">if</span> b == <span class="num">0.0</span> { <span class="ty">None</span> } <span class="kw">else</span> { <span class="ty">Some</span>(a / b) }
+}
+</div>
+<ul>
+  <li><code>Option&lt;T&gt;</code> 表示「可能有值，可能没有」—— 没有 null！</li>
+  <li><code>Some(value)</code> = 有值，<code>None</code> = 无值</li>
+  <li>用 <code>match</code> 解包，编译器强制你处理 <code>None</code> 的情况</li>
+</ul>
+<div class="note">⚡ <strong>没有 Null 指针异常！</strong> Rust 用 <code>Option&lt;T&gt;</code> 替代 null 指针，必须在编译期处理 <code>None</code> 的情况，彻底告别空指针异常。</div>
+</div>
+
+<!-- ========== 核心概念总结 ========== -->
+<div class="section">
+<h2>🎯 Rust 核心概念总结</h2>
+<table>
+  <tr><th>概念</th><th>说明</th></tr>
+  <tr><td><strong>所有权 (Ownership)</strong></td><td>每个值有唯一所有者，离开作用域自动释放。无需 GC，无需手动管理内存。</td></tr>
+  <tr><td><strong>借用 (Borrowing)</strong></td><td><code>&T</code> 不可变借用，<code>&mut T</code> 可变借用。编译时检查数据竞争。</td></tr>
+  <tr><td><strong>表达式 (Expression)</strong></td><td><code>if</code>、<code>match</code>、函数体都是表达式，可以返回值。</td></tr>
+  <tr><td><strong>模式匹配 (Pattern Matching)</strong></td><td><code>match</code> 必须穷举所有分支，与 Option/Result 结合非常强大。</td></tr>
+  <tr><td><strong>零成本抽象 (Zero-Cost Abstraction)</strong></td><td>高级特性的运行时开销为零，无 GC、无虚函数表开销。</td></tr>
+</table>
+</div>
+
+<!-- ========== 命令参考 ========== -->
+<div class="section">
+<h2>🛠️ 常用 Cargo 命令</h2>
+<table>
+  <tr><th>命令</th><th>说明</th></tr>
+  <tr><td><code>cargo new &lt;name&gt;</code></td><td>创建新项目</td></tr>
+  <tr><td><code>cargo build</code></td><td>编译（调试模式）</td></tr>
+  <tr><td><code>cargo build --release</code></td><td>编译（发布模式，优化后性能更好）</td></tr>
+  <tr><td><code>cargo run</code></td><td>编译并运行</td></tr>
+  <tr><td><code>cargo check</code></td><td>仅检查能否编译（速度快，不生成可执行文件）</td></tr>
+  <tr><td><code>cargo test</code></td><td>运行测试</td></tr>
+  <tr><td><code>cargo doc --open</code></td><td>生成本地文档并打开</td></tr>
+</table>
+</div>
+
+<!-- ========== 下一步 ========== -->
+<div class="section">
+<h2>📚 下一步学习</h2>
+<ol>
+  <li><strong>所有权与借用</strong> — Rust 最难也是最重要的概念</li>
+  <li><strong>结构体与枚举</strong> — <code>struct</code>, <code>enum</code></li>
+  <li><strong>trait</strong> — 类似接口的概念，定义共享行为</li>
+  <li><strong>错误处理</strong> — <code>Result&lt;T, E&gt;</code> vs <code>panic!</code></li>
+  <li><strong>生命周期</strong> — <code>'a</code> 参数，确保引用有效</li>
+</ol>
+<p>推荐资源：</p>
+<ul>
+  <li>📖 官方 Rust 编程书：<code>rustup docs --book</code></li>
+  <li>🌐 在线版：<a href="https://doc.rust-lang.org/book/">https://doc.rust-lang.org/book/</a></li>
+  <li>👨‍💻 练习平台：<a href="https://rustlings.cool/">rustlings</a>（推荐！）</li>
+</ul>
+</div>
+
+<hr>
+<p style="color:#666;font-size:.85em;text-align:center;">从命令行运行：<code>cd hello_rust && cargo run</code></p>
+
+</body>
+</html>
